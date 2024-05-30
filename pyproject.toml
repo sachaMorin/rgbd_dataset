@@ -1,0 +1,12 @@
+[project]
+name = "rgbd-dataset"
+version = "0.0.0"
+dependencies = [
+    "torch",
+    "torchvision",
+    "open3d",
+    "natsort",
+    "opencv-python",
+    "hydra-core",
+]
+requires-python = ">=3.8"

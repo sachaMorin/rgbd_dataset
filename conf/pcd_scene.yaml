@@ -1,0 +1,7 @@
+defaults:
+  - dataset/Replica
+  - _self_
+
+draw_frame: true
+draw_cam: true
+draw_traj: true
