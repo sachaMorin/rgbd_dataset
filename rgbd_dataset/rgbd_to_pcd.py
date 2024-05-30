@@ -16,7 +16,14 @@ def rgbd_to_pcd(
     color_raw = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
     color_o3d = o3d.geometry.Image(color_raw)
     depth_o3d = o3d.geometry.Image(depth)
-    intrinsics_o3d = o3d.camera.PinholeCameraIntrinsic(width, height, intrinsics[0, 0], intrinsics[1, 1], intrinsics[0, 2], intrinsics[1, 2])
+    intrinsics_o3d = o3d.camera.PinholeCameraIntrinsic(
+        width,
+        height,
+        intrinsics[0, 0],
+        intrinsics[1, 1],
+        intrinsics[0, 2],
+        intrinsics[1, 2],
+    )
 
     rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(
         color=color_o3d,

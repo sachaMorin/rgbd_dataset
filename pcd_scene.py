@@ -16,10 +16,13 @@ def main(cfg: DictConfig):
         pcd_scene += obs["point_cloud"]
 
         if cfg.draw_cam:
-            cam = o3d.geometry.LineSet.create_camera_visualization(cfg.dataset.width,
-                                                                   cfg.dataset.height,
-                                                                   obs["intrinsics"],
-                                                                   obs["extrinsics"], scale=.05)
+            cam = o3d.geometry.LineSet.create_camera_visualization(
+                obs["depth"].shape[1],
+                obs["depth"].shape[0],
+                obs["intrinsics"],
+                obs["extrinsics"],
+                scale=0.05,
+            )
             geometries += [cam]
 
         if cfg.draw_traj:
@@ -34,12 +37,12 @@ def main(cfg: DictConfig):
                 line.colors = o3d.utility.Vector3dVector([[1, 0, 0]])
                 geometries += [line]
 
-
-
     geometries += [pcd_scene]
 
     if cfg.draw_frame:
-        frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=[0, 0, 0])
+        frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
+            size=1.0, origin=[0, 0, 0]
+        )
         geometries += [frame]
 
     o3d.visualization.draw_geometries(geometries)

@@ -127,8 +127,16 @@ class BaseRGBDDataset(Dataset):
         self.check_image_size(depth)
 
         if self.is_resized:
-            rgb = cv2.resize(rgb, (self.resized_width, self.resized_height))
-            depth = cv2.resize(depth, (self.resized_width, self.resized_height))
+            rgb = cv2.resize(
+                rgb,
+                (self.resized_width, self.resized_height),
+                interpolation=cv2.INTER_LINEAR,
+            )
+            depth = cv2.resize(
+                depth,
+                (self.resized_width, self.resized_height),
+                interpolation=cv2.INTER_NEAREST,
+            )
 
         if self.relative_pose:
             pose = np.dot(pose, self.first_pose_inv)
