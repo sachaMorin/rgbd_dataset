@@ -131,7 +131,7 @@ class BaseRGBDDataset(Dataset):
             depth = cv2.resize(depth, (self.resized_width, self.resized_height))
 
         if self.relative_pose:
-            pose = np.dot(self.first_pose_inv, pose)
+            pose = np.dot(pose, self.first_pose_inv)
 
         result = dict(
             rgb=rgb,
