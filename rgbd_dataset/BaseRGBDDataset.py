@@ -12,6 +12,7 @@ class BaseRGBDDataset(Dataset):
     def __init__(
         self,
         base_path: Union[str, Path],
+        scene: str,
         width: int,
         height: int,
         fx: float,
@@ -30,6 +31,7 @@ class BaseRGBDDataset(Dataset):
     ):
         super().__init__()
         self.base_path = Path(base_path)
+        self.scene = scene
         self.width = width
         self.height = height
         self.fx = fx
