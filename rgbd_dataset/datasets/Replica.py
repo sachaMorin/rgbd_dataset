@@ -32,8 +32,7 @@ class Replica(BaseRGBDDataset):
         for i in range(self.num_total_images):
             line = lines[i]
             c2w = np.array(list(map(float, line.split()))).reshape(4, 4)
-            w2c = np.linalg.inv(c2w)
-            poses.append(w2c)
+            poses.append(c2w)
         return poses
 
     def read_rgb(self, path: Union[str, Path]) -> np.ndarray:

@@ -104,6 +104,7 @@ class BaseRGBDDataset(Dataset):
         raise NotImplementedError
 
     def get_se3_poses(self) -> List[np.array]:
+        # Camera to world transform
         raise NotImplementedError
 
     def read_rgb(self, path: Union[str, Path]) -> np.ndarray:
@@ -144,7 +145,7 @@ class BaseRGBDDataset(Dataset):
         result = dict(
             rgb=rgb,
             depth=depth,
-            extrinsics=pose,
+            camera_pose=pose,
             intrinsics=self.scaled_intrinsic_mx,
         )
 

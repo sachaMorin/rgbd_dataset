@@ -29,15 +29,16 @@ class ProcTHOR(BaseRGBDDataset):
     def get_se3_poses(self) -> List[np.array]:
         robot2cam_path = str(self.base_path / self.split / str(self.scene_id) / "extrinsics.json")
         robot2cam = np.array(json.loads(open(robot2cam_path).read())["color_main"]).reshape(4, 4)
+        cam2robot = np.linalg.inv(robot2cam)
 
         pose_path = str(self.base_path / self.split / str(self.scene_id) / "pose" / "*.json")
         pose_paths = natsorted(glob.glob(pose_path))
         poses = []
         for path in pose_paths:
-            extrinsics = json.loads(open(path).read())
-            extrinsics = np.array(extrinsics).reshape(4, 4)
-            extrinsics = robot2cam @ np.linalg.inv(extrinsics)
-            poses.append(extrinsics)
+            robot2world = json.loads(open(path).read())
+            robot2world = np.array(robot2world).reshape(4, 4)
+            cam2world = robot2world @ cam2robot
+            poses.append(cam2world)
         return poses
 
     def read_rgb(self, path: Union[str, Path]) -> np.ndarray:

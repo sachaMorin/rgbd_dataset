@@ -23,14 +23,13 @@ def main(cfg: DictConfig):
                 obs["depth"].shape[1],
                 obs["depth"].shape[0],
                 obs["intrinsics"],
-                obs["extrinsics"],
+                np.linalg.inv(obs["camera_pose"]),  # World to cam
                 scale=0.05,
             )
             geometries += [cam]
 
         if cfg.draw_traj:
-            # Somehow we need cam to world here
-            poses += [np.linalg.inv(obs["extrinsics"])[0:3, 3]]
+            poses += [obs["camera_pose"][0:3, 3]]
 
             # Add line between this camera and previous one
             if len(poses) > 1:
