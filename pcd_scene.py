@@ -41,7 +41,7 @@ def main(cfg: DictConfig):
 
     geometries += [pcd_scene]
 
-    if cfg.draw_frame:
+    if cfg.draw_origin:
         frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
             size=1.0, origin=[0, 0, 0]
         )
