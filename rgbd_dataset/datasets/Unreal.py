@@ -36,9 +36,3 @@ class Unreal(BaseRGBDDataset):
             poses.append(c2w)
 
         return poses
-
-    def read_rgb(self, path: Union[str, Path]) -> np.ndarray:
-        return cv2.imread(str(path))
-
-    def read_depth(self, path: Union[str, Path]) -> np.ndarray:
-        return cv2.imread(str(path), cv2.IMREAD_ANYDEPTH)

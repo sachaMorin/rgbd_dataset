@@ -39,9 +39,3 @@ class ProcTHOR(BaseRGBDDataset):
             cam2world = robot2world @ cam2robot
             poses.append(cam2world)
         return poses
-
-    def read_rgb(self, path: Union[str, Path]) -> np.ndarray:
-        return cv2.imread(str(path))
-
-    def read_depth(self, path: Union[str, Path]) -> np.ndarray:
-        return cv2.imread(str(path), cv2.IMREAD_ANYDEPTH)

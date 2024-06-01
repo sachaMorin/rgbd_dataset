@@ -13,8 +13,7 @@ def rgbd_to_pcd(
     depth_trunc: float = 8.0,
     depth_scale: float = 1.0,
 ) -> o3d.geometry.PointCloud:
-    color_raw = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
-    color_o3d = o3d.geometry.Image(color_raw)
+    color_o3d = o3d.geometry.Image(rgb)
     depth_o3d = o3d.geometry.Image(depth)
     intrinsics_o3d = o3d.camera.PinholeCameraIntrinsic(
         width,

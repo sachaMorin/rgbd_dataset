@@ -110,10 +110,12 @@ class BaseRGBDDataset(Dataset):
         raise NotImplementedError
 
     def read_rgb(self, path: Union[str, Path]) -> np.ndarray:
-        raise NotImplementedError
+        img = cv2.imread(str(path))
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        return img
 
     def read_depth(self, path: Union[str, Path]) -> np.ndarray:
-        raise NotImplementedError
+        return cv2.imread(str(path), cv2.IMREAD_ANYDEPTH)
 
     def check_image_size(self, img: np.ndarray):
         if img.shape[0] != self.height or img.shape[1] != self.width:
