@@ -33,7 +33,9 @@ def rgbd_to_pcd(
     )
 
     pcd = o3d.geometry.PointCloud.create_from_rgbd_image(
-        image=rgbd_image, intrinsic=intrinsics_o3d, extrinsic=np.linalg.inv(camera_pose) # World to cam
+        image=rgbd_image,
+        intrinsic=intrinsics_o3d,
+        extrinsic=np.linalg.inv(camera_pose),  # World to cam
     )
 
     return pcd

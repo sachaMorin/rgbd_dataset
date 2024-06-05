@@ -16,21 +16,31 @@ class ProcTHOR(BaseRGBDDataset):
         super().__init__(**kwargs)
 
     def get_rgb_paths(self) -> List[str]:
-        path_str = str(self.base_path / self.split / str(self.scene) / "color_main" / "*.jpg")
+        path_str = str(
+            self.base_path / self.split / str(self.scene) / "color_main" / "*.jpg"
+        )
         rgb_paths = natsorted(glob.glob(path_str))
         return rgb_paths
 
     def get_depth_paths(self) -> List[str]:
-        path_str = str(self.base_path / self.split / str(self.scene) / "depth_main" / "*.png")
+        path_str = str(
+            self.base_path / self.split / str(self.scene) / "depth_main" / "*.png"
+        )
         depth_paths = natsorted(glob.glob(path_str))
         return depth_paths
 
     def get_se3_poses(self) -> List[np.array]:
-        robot2cam_path = str(self.base_path / self.split / str(self.scene) / "extrinsics.json")
-        robot2cam = np.array(json.loads(open(robot2cam_path).read())["color_main"]).reshape(4, 4)
+        robot2cam_path = str(
+            self.base_path / self.split / str(self.scene) / "extrinsics.json"
+        )
+        robot2cam = np.array(
+            json.loads(open(robot2cam_path).read())["color_main"]
+        ).reshape(4, 4)
         cam2robot = np.linalg.inv(robot2cam)
 
-        pose_path = str(self.base_path / self.split / str(self.scene) / "pose" / "*.json")
+        pose_path = str(
+            self.base_path / self.split / str(self.scene) / "pose" / "*.json"
+        )
         pose_paths = natsorted(glob.glob(pose_path))
         poses = []
         for path in pose_paths:

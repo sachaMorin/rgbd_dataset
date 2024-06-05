@@ -5,7 +5,8 @@ import glob
 import numpy as np
 from typing import List
 from natsort import natsorted
-os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
+
+os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
 import cv2
 import pandas as pd
 from scipy.spatial.transform import Rotation as R
