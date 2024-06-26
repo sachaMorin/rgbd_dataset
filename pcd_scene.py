@@ -16,7 +16,7 @@ def main(cfg: DictConfig):
         pcd_scene += obs["point_cloud"]
 
         if cfg.downsampling_voxel_size > 0:
-            pcd_scene = pcd_scene.voxel_down_sample(voxel_size=0.05)
+            pcd_scene = pcd_scene.voxel_down_sample(voxel_size=cfg.downsampling_voxel_size)
 
         if cfg.draw_cam:
             cam = o3d.geometry.LineSet.create_camera_visualization(

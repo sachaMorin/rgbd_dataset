@@ -128,8 +128,8 @@ class BaseRGBDDataset(Dataset):
         depth = self.read_depth(self.depth_paths[idx])
         pose = self.se3_poses[idx]
 
-        self.check_image_size(rgb)
-        self.check_image_size(depth)
+        # self.check_image_size(rgb)
+        # self.check_image_size(depth)
 
         if self.is_resized:
             rgb = cv2.resize(
@@ -144,7 +144,9 @@ class BaseRGBDDataset(Dataset):
             )
 
         if self.relative_pose:
-            pose = np.dot(pose, self.first_pose_inv)
+            # TODO: TRIPLE CHECK THIS
+            # pose = np.dot(pose, self.first_pose_inv)
+            pose = np.dot(self.first_pose_inv, pose)
 
         result = dict(
             rgb=rgb,
