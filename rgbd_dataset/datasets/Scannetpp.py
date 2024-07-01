@@ -31,7 +31,6 @@ class Scannetpp(BaseRGBDDataset):
         keys = natsorted([k for k in data.keys()])
 
         poses = [np.array(data[k]["aligned_pose"]).reshape((4, 4)) for k in keys]
-        poses = poses[::100] # Only need this locally because of the downsampled version, remove later
 
         return poses
 
@@ -42,6 +41,5 @@ class Scannetpp(BaseRGBDDataset):
         keys = natsorted([k for k in data.keys()])
 
         poses = [np.array(data[k]["intrinsic"]) for k in keys]
-        poses = poses[::100] # Only need this locally because of the downsampled version, remove later
 
         return poses
