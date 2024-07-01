@@ -120,13 +120,13 @@ class BaseRGBDDataset(Dataset):
         pose = self.se3_poses[idx]
         intrinsics = self.rescale_intrinsics(self.intrinsics[idx])
 
-        if rgb.shape[0] != self.height or rgb.shape[1] != self.width:
+        if rgb.shape[0] != self.resized_height or rgb.shape[1] != self.resized_width:
             rgb = cv2.resize(
                 rgb,
                 (self.resized_width, self.resized_height),
                 interpolation=cv2.INTER_LINEAR,
             )
-        if depth.shape[0] != self.height or depth.shape[1] != self.width:
+        if depth.shape[0] != self.resized_height or depth.shape[1] != self.resized_width:
             depth = cv2.resize(
                 depth,
                 (self.resized_width, self.resized_height),
@@ -134,8 +134,6 @@ class BaseRGBDDataset(Dataset):
             )
 
         if self.relative_pose:
-            # TODO: TRIPLE CHECK THIS
-            # pose = np.dot(pose, self.first_pose_inv)
             pose = np.dot(self.first_pose_inv, pose)
 
         result = dict(
