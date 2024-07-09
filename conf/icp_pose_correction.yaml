@@ -1,0 +1,12 @@
+defaults:
+  - dataset: Replica
+  - _self_
+
+downsampling_voxel_size: -1
+show: false
+dbscan:
+  eps: 0.035
+  min_points: 300
+icp:
+  eps: 0.03
+  max_iter: 2000
