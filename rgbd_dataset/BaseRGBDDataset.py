@@ -101,11 +101,9 @@ class BaseRGBDDataset(Dataset):
 
     def get_intrinsic_matrices(self) -> List[np.array]:
         # Constant intrinsics
-        intrinsics = np.array([
-            [self.fx, 0.0, self.cx],
-            [0.0, self.fy, self.cy],
-            [0.0, 0.0, 1.0]
-        ])
+        intrinsics = np.array(
+            [[self.fx, 0.0, self.cx], [0.0, self.fy, self.cy], [0.0, 0.0, 1.0]]
+        )
         return [intrinsics] * self.num_total_images
 
     def read_rgb(self, path: Union[str, Path]) -> np.ndarray:
@@ -128,7 +126,10 @@ class BaseRGBDDataset(Dataset):
                 (self.resized_width, self.resized_height),
                 interpolation=cv2.INTER_LINEAR,
             )
-        if depth.shape[0] != self.resized_height or depth.shape[1] != self.resized_width:
+        if (
+            depth.shape[0] != self.resized_height
+            or depth.shape[1] != self.resized_width
+        ):
             depth = cv2.resize(
                 depth,
                 (self.resized_width, self.resized_height),
