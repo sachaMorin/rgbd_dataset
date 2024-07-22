@@ -24,7 +24,7 @@ def main(cfg: DictConfig):
                 obs["depth"].shape[0],
                 obs["intrinsics"],
                 np.linalg.inv(obs["camera_pose"]),  # World to cam
-                scale=0.05,
+                scale=0.5,
             )
             geometries += [cam]
 
