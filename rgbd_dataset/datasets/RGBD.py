@@ -9,7 +9,14 @@ from ..BaseRGBDDataset import BaseRGBDDataset
 
 
 class RGBD(BaseRGBDDataset):
-    def __init__(self, rgb_dir: str = "rgb", depth_dir : str = "depth", pose_dir: str = "camera_pose", intrinsics_dir: str = "intrinsics", **kwargs):
+    def __init__(
+        self,
+        rgb_dir: str = "rgb",
+        depth_dir: str = "depth",
+        pose_dir: str = "camera_pose",
+        intrinsics_dir: str = "intrinsics",
+        **kwargs,
+    ):
         self.rgb_dir = rgb_dir
         self.pose_dir = pose_dir
         self.depth_dir = depth_dir
@@ -17,7 +24,7 @@ class RGBD(BaseRGBDDataset):
         super().__init__(**kwargs)
 
     def get_rgb_paths(self) -> List[str]:
-        path_str = str(self.base_path / self.scene / self.rgb_dir /  "*.jpg")
+        path_str = str(self.base_path / self.scene / self.rgb_dir / "*.jpg")
         rgb_paths = natsorted(glob.glob(path_str))
         return rgb_paths
 
@@ -27,9 +34,7 @@ class RGBD(BaseRGBDDataset):
         return depth_paths
 
     def get_se3_poses(self) -> List[np.array]:
-        pose_path = str(
-            self.base_path / str(self.scene) / self.pose_dir /  "*.json"
-        )
+        pose_path = str(self.base_path / str(self.scene) / self.pose_dir / "*.json")
         pose_paths = natsorted(glob.glob(pose_path))
         poses = []
         for path in pose_paths:

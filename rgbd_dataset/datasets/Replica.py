@@ -30,4 +30,3 @@ class Replica(BaseRGBDDataset):
             c2w = np.array(list(map(float, line.split()))).reshape(4, 4)
             poses.append(c2w)
         return poses
-    
