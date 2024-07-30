@@ -5,6 +5,7 @@ import json
 import cv2
 import numpy as np
 from torch.utils.data import Dataset
+from scipy.spatial.transform import Rotation
 
 from .rgbd_to_pcd import rgbd_to_pcd
 
@@ -168,6 +169,7 @@ class BaseRGBDDataset(Dataset):
             frames=[],
         )
 
+
         for idx in range(len(self)):
             rgb_path = self.rgb_paths[idx]
             intrinsics = self.intrinsics[idx] # No rescale
@@ -175,6 +177,10 @@ class BaseRGBDDataset(Dataset):
             
             if self.relative_pose:
                 pose = np.dot(self.first_pose_inv, pose)
+
+            # Switch to OpenGL convention
+            pose[:, 1] *= -1
+            pose[:, 2] *= -1
 
             fx, fy, cx, cy = intrinsics[0, 0], intrinsics[1, 1], intrinsics[0, 2], intrinsics[1, 2]
             data = dict(fl_x=fx, fl_y=fy, cx=cx, cy=cy, file_path=rgb_path, transform_matrix=pose.tolist())
