@@ -1,6 +1,7 @@
 from typing import Union, List
 from pathlib import Path
 
+import json
 import cv2
 import numpy as np
 from torch.utils.data import Dataset
@@ -157,3 +158,26 @@ class BaseRGBDDataset(Dataset):
         result["depth"] = result["depth"] / self.depth_scale
 
         return result
+
+    def to_nerfstudio_config(self, dir: str):
+        config = dict(
+            camera_model="OPENCV",
+            w=self.width, # Not self.resized_width. Nerfstudio reads the files directly
+            h=self.height,
+            frames=[],
+        )
+
+        for idx in range(len(self)):
+            rgb_path = self.rgb_paths[idx]
+            intrinsics = self.intrinsics[idx] # No rescale
+            pose = self.se3_poses[idx]
+            
+            if self.relative_pose:
+                pose = np.dot(self.first_pose_inv, pose)
+
+            fx, fy, cx, cy = intrinsics[0, 0], intrinsics[1, 1], intrinsics[0, 2], intrinsics[1, 2]
+            data = dict(fl_x=fx, fl_y=fy, cx=cx, cy=cy, file_path=rgb_path, transform_matrix=pose.tolist())
+            config["frames"].append(data)
+
+        with open(dir + "/transforms.json", "w") as f:
+            json.dump(config, f)
