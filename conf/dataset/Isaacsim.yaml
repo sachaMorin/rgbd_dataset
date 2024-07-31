@@ -5,10 +5,6 @@ scene:
 - chair2
 width: 960
 height: 540
-fx: 2290.622802734375
-fy: 2290.622802734375
-cx: 480
-cy: 270
 resized_width: -1
 resized_height: -1
 sequence_start: 0
