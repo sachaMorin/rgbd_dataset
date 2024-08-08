@@ -2,7 +2,7 @@ defaults:
   - dataset: Replica
   - _self_
 
-draw_origin: true
-draw_cam: true
-draw_traj: true
-downsampling_voxel_size: -1
+draw_origin: false
+draw_cam: false
+draw_traj: false
+downsampling_voxel_size: .01
