@@ -7,7 +7,7 @@ import numpy as np
 import json
 import os
 from scipy.spatial.transform import Rotation as R
-
+from tqdm import tqdm
 
 class DBSCAN:
     def __init__(self, eps=0.02, min_points=10):
@@ -39,24 +39,54 @@ def main(cfg: DictConfig):
     translations = []
     rotations = []
 
+    progress_bar = tqdm(total=len(dataset))
+    progress_bar.set_description(f"Running ICP")
+
     for obs in dataset:
         frame_pc = obs["point_cloud"]
         frame_pc = denoiser(frame_pc)
 
+        if cfg.downsampling_voxel_size > 0:
+            frame_pc = frame_pc.voxel_down_sample(
+                voxel_size=cfg.downsampling_voxel_size
+            )
+
         if len(pcd_scene.points):
             trans_init = prev_transform
-            reg_p2p = o3d.pipelines.registration.registration_icp(
-                frame_pc,
-                pcd_scene,
-                cfg.icp.eps,
-                trans_init,
-                o3d.pipelines.registration.TransformationEstimationPointToPoint(),
-                o3d.pipelines.registration.ICPConvergenceCriteria(
-                    max_iteration=cfg.icp.max_iter
-                ),
-            )
-            print(reg_p2p)
-            print(reg_p2p.transformation)
+
+            if cfg.color:
+                # Colored ICP
+                radius = cfg.downsampling_voxel_size if cfg.downsampling_voxel_size > 0 else 0.01
+                pcd_scene.estimate_normals(
+                    o3d.geometry.KDTreeSearchParamHybrid(radius= radius * 2, max_nn=30))
+                frame_pc.estimate_normals(
+                    o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30))
+
+                reg_p2p = o3d.pipelines.registration.registration_colored_icp(
+                    frame_pc, pcd_scene, cfg.icp.eps, trans_init,
+                    o3d.pipelines.registration.TransformationEstimationForColoredICP(),
+                    o3d.pipelines.registration.ICPConvergenceCriteria(relative_fitness=1e-6,
+                                                                    relative_rmse=1e-6,
+                                                                    max_iteration=cfg.icp.max_iter))
+
+            else:
+                # Standard ICP
+                reg_p2p = o3d.pipelines.registration.registration_icp(
+                    frame_pc,
+                    pcd_scene,
+                    cfg.icp.eps,
+                    trans_init,
+                    o3d.pipelines.registration.TransformationEstimationPointToPoint(),
+                    o3d.pipelines.registration.ICPConvergenceCriteria(
+                        max_iteration=cfg.icp.max_iter
+                    ),
+                )
+            
+            
+            
+            if cfg.debug:
+                print(reg_p2p)
+                print(reg_p2p.transformation)
 
             frame_pc = frame_pc.transform(reg_p2p.transformation)
             prev_transform = np.array(reg_p2p.transformation)
@@ -65,6 +95,10 @@ def main(cfg: DictConfig):
             obs["camera_pose"] = prev_transform @ obs["camera_pose"] 
 
 
+
+        if dataset.relative_pose and cfg.undo_relative_pose:
+            obs["camera_pose"] = dataset.first_pose @ obs["camera_pose"]
+
         corrected_poses.append(obs["camera_pose"])
         pcd_scene += frame_pc
 
@@ -72,6 +106,8 @@ def main(cfg: DictConfig):
             pcd_scene = pcd_scene.voxel_down_sample(
                 voxel_size=cfg.downsampling_voxel_size
             )
+
+        progress_bar.update(1)
 
     geometries += [pcd_scene]
     translations = np.stack(translations)

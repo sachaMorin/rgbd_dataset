@@ -80,7 +80,8 @@ class BaseRGBDDataset(Dataset):
         self.intrinsics = self.get_intrinsic_matrices()[
             self.sequence_start : self.sequence_end : self.sequence_stride
         ]
-        self.first_pose_inv = np.linalg.inv(self.se3_poses[0])
+        self.first_pose = self.se3_poses[0]
+        self.first_pose_inv = np.linalg.inv(self.first_pose)
 
     def __len__(self):
         return len(self.rgb_paths)
