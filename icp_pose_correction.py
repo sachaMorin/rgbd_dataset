@@ -9,6 +9,7 @@ import os
 from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
 
+
 class DBSCAN:
     def __init__(self, eps=0.02, min_points=10):
         self.eps = eps
@@ -56,18 +57,30 @@ def main(cfg: DictConfig):
 
             if cfg.color:
                 # Colored ICP
-                radius = cfg.downsampling_voxel_size if cfg.downsampling_voxel_size > 0 else 0.01
+                radius = (
+                    cfg.downsampling_voxel_size
+                    if cfg.downsampling_voxel_size > 0
+                    else 0.01
+                )
                 pcd_scene.estimate_normals(
-                    o3d.geometry.KDTreeSearchParamHybrid(radius= radius * 2, max_nn=30))
+                    o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30)
+                )
                 frame_pc.estimate_normals(
-                    o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30))
+                    o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30)
+                )
 
                 reg_p2p = o3d.pipelines.registration.registration_colored_icp(
-                    frame_pc, pcd_scene, cfg.icp.eps, trans_init,
+                    frame_pc,
+                    pcd_scene,
+                    cfg.icp.eps,
+                    trans_init,
                     o3d.pipelines.registration.TransformationEstimationForColoredICP(),
-                    o3d.pipelines.registration.ICPConvergenceCriteria(relative_fitness=1e-6,
-                                                                    relative_rmse=1e-6,
-                                                                    max_iteration=cfg.icp.max_iter))
+                    o3d.pipelines.registration.ICPConvergenceCriteria(
+                        relative_fitness=1e-6,
+                        relative_rmse=1e-6,
+                        max_iteration=cfg.icp.max_iter,
+                    ),
+                )
 
             else:
                 # Standard ICP
@@ -81,9 +94,7 @@ def main(cfg: DictConfig):
                         max_iteration=cfg.icp.max_iter
                     ),
                 )
-            
-            
-            
+
             if cfg.debug:
                 print(reg_p2p)
                 print(reg_p2p.transformation)
@@ -91,10 +102,10 @@ def main(cfg: DictConfig):
             frame_pc = frame_pc.transform(reg_p2p.transformation)
             prev_transform = np.array(reg_p2p.transformation)
             translations += [prev_transform[:3, 3]]
-            rotations += [R.from_matrix(prev_transform[:3, :3]).as_euler("xyz", degrees=True)]
-            obs["camera_pose"] = prev_transform @ obs["camera_pose"] 
-
-
+            rotations += [
+                R.from_matrix(prev_transform[:3, :3]).as_euler("xyz", degrees=True)
+            ]
+            obs["camera_pose"] = prev_transform @ obs["camera_pose"]
 
         if dataset.relative_pose and cfg.undo_relative_pose:
             obs["camera_pose"] = dataset.first_pose @ obs["camera_pose"]

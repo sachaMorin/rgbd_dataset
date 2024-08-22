@@ -171,17 +171,16 @@ class BaseRGBDDataset(Dataset):
     def to_nerfstudio_config(self, dir: str):
         config = dict(
             camera_model="OPENCV",
-            w=self.width, # Not self.resized_width. Nerfstudio reads the files directly
+            w=self.width,  # Not self.resized_width. Nerfstudio reads the files directly
             h=self.height,
             frames=[],
         )
 
-
         for idx in range(len(self)):
             rgb_path = self.rgb_paths[idx]
-            intrinsics = self.intrinsics[idx] # No rescale
+            intrinsics = self.intrinsics[idx]  # No rescale
             pose = self.se3_poses[idx]
-            
+
             if self.relative_pose:
                 pose = np.dot(self.first_pose_inv, pose)
 
@@ -189,8 +188,20 @@ class BaseRGBDDataset(Dataset):
             pose[:, 1] *= -1
             pose[:, 2] *= -1
 
-            fx, fy, cx, cy = intrinsics[0, 0], intrinsics[1, 1], intrinsics[0, 2], intrinsics[1, 2]
-            data = dict(fl_x=fx, fl_y=fy, cx=cx, cy=cy, file_path=rgb_path, transform_matrix=pose.tolist())
+            fx, fy, cx, cy = (
+                intrinsics[0, 0],
+                intrinsics[1, 1],
+                intrinsics[0, 2],
+                intrinsics[1, 2],
+            )
+            data = dict(
+                fl_x=fx,
+                fl_y=fy,
+                cx=cx,
+                cy=cy,
+                file_path=rgb_path,
+                transform_matrix=pose.tolist(),
+            )
             config["frames"].append(data)
 
         with open(dir + "/transforms.json", "w") as f:

@@ -8,7 +8,6 @@ from scipy.spatial.transform import Rotation as R
 from ..BaseRGBDDataset import BaseRGBDDataset
 
 
-
 class Isaacsim(BaseRGBDDataset):
     @property
     def name(self):
@@ -41,14 +40,12 @@ class Isaacsim(BaseRGBDDataset):
                 pose_list = json.load(open(p))
                 poses.append(np.array(pose_list))
 
-
             # Change Isaacsim coordinate sim
             for p in poses:
-                rot = R.from_euler("zy", [-90, 90],  degrees=True).as_matrix()
-                p[:3, :3]  = p[:3, :3] @ rot
+                rot = R.from_euler("zy", [-90, 90], degrees=True).as_matrix()
+                p[:3, :3] = p[:3, :3] @ rot
 
             result += poses
-
 
         return result
 
