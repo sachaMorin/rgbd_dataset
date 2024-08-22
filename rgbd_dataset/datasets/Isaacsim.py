@@ -1,14 +1,12 @@
-from typing import Union
-from pathlib import Path
 import glob
 import numpy as np
 from typing import List
 from natsort import natsorted
-import cv2
 import json
 from scipy.spatial.transform import Rotation as R
 
 from ..BaseRGBDDataset import BaseRGBDDataset
+
 
 
 class Isaacsim(BaseRGBDDataset):
@@ -47,4 +45,14 @@ class Isaacsim(BaseRGBDDataset):
             result += poses
 
 
+        return result
+
+    def get_intrinsic_matrices(self) -> List[np.array]:
+        result = []
+        for obj in self.scene:
+            path_str = str(self.base_path / obj / "intrinsics/frame*.json")
+            paths = natsorted(glob.glob(path_str))
+            for path in paths:
+                mx = json.loads(open(path).read())
+                result.append(np.array(mx).reshape((3, 3)))
         return result
