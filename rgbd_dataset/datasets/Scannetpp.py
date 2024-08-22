@@ -28,10 +28,20 @@ class Scannetpp(BaseRGBDDataset):
         pose_path = str(self.base_path / "data"  / self.scene / "iphone" / "pose_intrinsic_imu.json")
         with open(pose_path, "r") as f:
             data = json.load(f)
-        # TODO: Use poses or aligned poses?
         keys = natsorted([k for k in data.keys()])
 
-        poses = [np.array(data[k]["pose"]).reshape((4, 4)) for k in keys]
+        poses = [np.array(data[k]["aligned_pose"]).reshape((4, 4)) for k in keys]
+        poses = poses[::100] # Only need this locally because of the downsampled version, remove later
+
+        return poses
+
+    def get_intrinsic_matrices(self) -> List[np.array]:
+        pose_path = str(self.base_path / "data"  / self.scene / "iphone" / "pose_intrinsic_imu.json")
+        with open(pose_path, "r") as f:
+            data = json.load(f)
+        keys = natsorted([k for k in data.keys()])
+
+        poses = [np.array(data[k]["intrinsic"]) for k in keys]
         poses = poses[::100] # Only need this locally because of the downsampled version, remove later
 
         return poses
