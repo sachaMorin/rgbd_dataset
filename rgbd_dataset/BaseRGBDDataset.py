@@ -24,6 +24,10 @@ class BaseRGBDDataset(Dataset):
         depth_scale: float = 1.0,
         point_cloud: bool = True,
         depth_trunc: float = 8.0,
+        fx: float = None,
+        fy: float = None,
+        cx: float = None,
+        cy: float = None,
     ):
         super().__init__()
         self.base_path = Path(base_path)
@@ -39,6 +43,13 @@ class BaseRGBDDataset(Dataset):
         self.depth_scale = depth_scale
         self.point_cloud = point_cloud
         self.depth_trunc = depth_trunc
+
+        # Optional parameters for global intrinsics
+        # Override get_intrinsics_matrices for per frame intrinsics
+        self.fx = fx
+        self.fy = fy
+        self.cx = cx
+        self.cy = cy
 
         # Parameters for rescaling intrinsics
         if self.resized_width == -1:
@@ -87,8 +98,13 @@ class BaseRGBDDataset(Dataset):
         raise NotImplementedError
 
     def get_intrinsic_matrices(self) -> List[np.array]:
-        # Camera intrinsics for each frame
-        raise NotImplementedError
+        # Constant intrinsics
+        intrinsics = np.array([
+            [self.fx, 0.0, self.cx],
+            [0.0, self.fy, self.cy],
+            [0.0, 0.0, 1.0]
+        ])
+        return [intrinsics] * self.num_total_images
 
     def read_rgb(self, path: Union[str, Path]) -> np.ndarray:
         img = cv2.imread(str(path))
