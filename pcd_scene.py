@@ -15,9 +15,9 @@ def main(cfg: DictConfig):
     for obs in dataset:
         pcd_scene += obs["point_cloud"]
 
-        if cfg.downsampling_voxel_size > 0:
+        if cfg.voxel_size > 0:
             pcd_scene = pcd_scene.voxel_down_sample(
-                voxel_size=cfg.downsampling_voxel_size
+                voxel_size=cfg.voxel_size
             )
 
         if cfg.draw_cam:
@@ -26,7 +26,7 @@ def main(cfg: DictConfig):
                 obs["depth"].shape[0],
                 obs["intrinsics"],
                 np.linalg.inv(obs["camera_pose"]),  # World to cam
-                scale=0.5,
+                scale=0.1,
             )
             geometries += [cam]
 
@@ -45,7 +45,7 @@ def main(cfg: DictConfig):
 
     if cfg.draw_origin:
         frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
-            size=1.0, origin=[0, 0, 0]
+            size=0.1, origin=[0, 0, 0]
         )
         geometries += [frame]
 
