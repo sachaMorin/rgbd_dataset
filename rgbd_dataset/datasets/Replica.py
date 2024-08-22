@@ -30,3 +30,12 @@ class Replica(BaseRGBDDataset):
             c2w = np.array(list(map(float, line.split()))).reshape(4, 4)
             poses.append(c2w)
         return poses
+    
+    def get_intrinsic_matrices(self) -> List[np.array]:
+        # Constant intrinsics
+        intrinsics = np.array([
+            [600., 0.0, 599.5],
+            [0.0, 600., 339.5],
+            [0.0, 0.0, 1.0]
+        ])
+        return [intrinsics] * self.num_total_images

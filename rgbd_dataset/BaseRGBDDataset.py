@@ -15,10 +15,6 @@ class BaseRGBDDataset(Dataset):
         scene: str,
         width: int,
         height: int,
-        fx: float,
-        fy: float,
-        cx: float,
-        cy: float,
         resized_width: int = -1,
         resized_height: int = -1,
         sequence_start: int = 0,
@@ -34,10 +30,6 @@ class BaseRGBDDataset(Dataset):
         self.scene = scene
         self.width = width
         self.height = height
-        self.fx = fx
-        self.fy = fy
-        self.cx = cx
-        self.cy = cy
         self.resized_width = resized_width
         self.resized_height = resized_height
         self.sequence_start = sequence_start
@@ -47,6 +39,14 @@ class BaseRGBDDataset(Dataset):
         self.depth_scale = depth_scale
         self.point_cloud = point_cloud
         self.depth_trunc = depth_trunc
+
+        # Parameters for rescaling intrinsics
+        if self.resized_width == -1:
+            self.resized_width = self.width
+        if self.resized_height == -1:
+            self.resized_height = self.height
+        self.w_ratio = self.resized_width / self.width
+        self.h_ratio = self.resized_height / self.height
 
         # Get and slice paths and poses
         self.rgb_paths = self.get_rgb_paths()
@@ -60,44 +60,21 @@ class BaseRGBDDataset(Dataset):
         self.se3_poses = self.get_se3_poses()[
             self.sequence_start : self.sequence_end : self.sequence_stride
         ]
+        self.intrinsics = self.get_intrinsic_matrices()[
+            self.sequence_start : self.sequence_end : self.sequence_stride
+        ]
         self.first_pose_inv = np.linalg.inv(self.se3_poses[0])
-
-        # Intrinsics
-        self.is_resized = self.resized_width > 0 and self.resized_height > 0
-        self.intrinsic_mx = self.get_intrinsics(self.fx, self.fy, self.cx, self.cy)
-        self.scaled_intrinsic_mx = self.get_scaled_intrinsics(
-            self.fx, self.fy, self.cx, self.cy
-        )
 
     def __len__(self):
         return len(self.rgb_paths)
 
-    def get_intrinsics(
-        self,
-        fx: float,
-        fy: float,
-        cx: float,
-        cy: float,
-        w_ratio: float = 1.0,
-        h_ratio: float = 1.0,
-    ) -> np.ndarray:
-        return np.array(
-            [
-                [fx * w_ratio, 0, cx * w_ratio],
-                [0, fy * h_ratio, cy * h_ratio],
-                [0, 0, 1],
-            ]
-        )
-
-    def get_scaled_intrinsics(self, fx: float, fy: float, cx: float, cy: float):
-        if self.is_resized:
-            w_ratio, h_ratio = (
-                self.resized_width / self.width,
-                self.resized_height / self.height,
-            )
-        else:
-            w_ratio, h_ratio = 1.0, 1.0
-        return self.get_intrinsics(fx, fy, cx, cy, w_ratio, h_ratio)
+    def rescale_intrinsics(self, intrinsics: np.ndarray):
+        rescaled_intrinsics = intrinsics.copy()
+        rescaled_intrinsics[0, 0] *= self.w_ratio
+        rescaled_intrinsics[0, 2] *= self.w_ratio
+        rescaled_intrinsics[1, 1] *= self.h_ratio
+        rescaled_intrinsics[1, 2] *= self.h_ratio
+        return rescaled_intrinsics
 
     def get_rgb_paths(self) -> List[str]:
         raise NotImplementedError
@@ -109,6 +86,10 @@ class BaseRGBDDataset(Dataset):
         # Camera to world transform
         raise NotImplementedError
 
+    def get_intrinsic_matrices(self) -> List[np.array]:
+        # Camera intrinsics for each frame
+        raise NotImplementedError
+
     def read_rgb(self, path: Union[str, Path]) -> np.ndarray:
         img = cv2.imread(str(path))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -117,26 +98,19 @@ class BaseRGBDDataset(Dataset):
     def read_depth(self, path: Union[str, Path]) -> np.ndarray:
         return cv2.imread(str(path), cv2.IMREAD_ANYDEPTH)
 
-    def check_image_size(self, img: np.ndarray):
-        if img.shape[0] != self.height or img.shape[1] != self.width:
-            raise ValueError(
-                f"Expected image of size ({self.height}, {self.width}, ...), but got {img.shape}"
-            )
-
     def __getitem__(self, idx):
         rgb = self.read_rgb(self.rgb_paths[idx])
         depth = self.read_depth(self.depth_paths[idx])
         pose = self.se3_poses[idx]
+        intrinsics = self.rescale_intrinsics(self.intrinsics[idx])
 
-        # self.check_image_size(rgb)
-        # self.check_image_size(depth)
-
-        if self.is_resized:
+        if rgb.shape[0] != self.height or rgb.shape[1] != self.width:
             rgb = cv2.resize(
                 rgb,
                 (self.resized_width, self.resized_height),
                 interpolation=cv2.INTER_LINEAR,
             )
+        if depth.shape[0] != self.height or depth.shape[1] != self.width:
             depth = cv2.resize(
                 depth,
                 (self.resized_width, self.resized_height),
@@ -152,7 +126,7 @@ class BaseRGBDDataset(Dataset):
             rgb=rgb,
             depth=depth,
             camera_pose=pose,
-            intrinsics=self.scaled_intrinsic_mx,
+            intrinsics=intrinsics,
         )
 
         if self.point_cloud:
