@@ -1,4 +1,5 @@
 _target_: rgbd_dataset.datasets.Isaacsim.Isaacsim
+dataset_name: "isaacsim"
 base_path: ???
 scene: 
 - chair1

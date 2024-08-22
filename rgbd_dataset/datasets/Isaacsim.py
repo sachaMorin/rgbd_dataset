@@ -10,6 +10,11 @@ from ..BaseRGBDDataset import BaseRGBDDataset
 
 
 class Isaacsim(BaseRGBDDataset):
+    @property
+    def name(self):
+        # self.scene is a list
+        return self.dataset_name
+
     def get_rgb_paths(self) -> List[str]:
         result = []
         for obj in self.scene:

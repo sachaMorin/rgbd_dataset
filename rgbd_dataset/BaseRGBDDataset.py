@@ -13,6 +13,7 @@ from .rgbd_to_pcd import rgbd_to_pcd
 class BaseRGBDDataset(Dataset):
     def __init__(
         self,
+        dataset_name: str,
         base_path: Union[str, Path],
         scene: str,
         width: int,
@@ -32,6 +33,7 @@ class BaseRGBDDataset(Dataset):
         cy: float = None,
     ):
         super().__init__()
+        self.dataset_name = dataset_name
         self.base_path = Path(base_path)
         self.scene = scene
         self.width = width
@@ -82,6 +84,10 @@ class BaseRGBDDataset(Dataset):
 
     def __len__(self):
         return len(self.rgb_paths)
+
+    @property
+    def name(self):
+        return self.dataset_name + "_" + self.scene
 
     def rescale_intrinsics(self, intrinsics: np.ndarray):
         rescaled_intrinsics = intrinsics.copy()
