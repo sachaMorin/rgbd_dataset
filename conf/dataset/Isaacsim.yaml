@@ -1,0 +1,20 @@
+_target_: rgbd_dataset.datasets.Isaacsim.Isaacsim
+base_path: ???
+scene: 
+- chair1
+- chair2
+width: 960
+height: 540
+fx: 2290.622802734375
+fy: 2290.622802734375
+cx: 480
+cy: 270
+resized_width: -1
+resized_height: -1
+sequence_start: 0
+sequence_end: -1
+sequence_stride: 1
+relative_pose: False
+depth_scale: 1000.0
+point_cloud: true
+depth_trunc: 12.0
