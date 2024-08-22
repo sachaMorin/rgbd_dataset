@@ -62,6 +62,8 @@ class BaseRGBDDataset(Dataset):
         # Get and slice paths and poses
         self.rgb_paths = self.get_rgb_paths()
         self.num_total_images = len(self.rgb_paths)
+        if self.sequence_end == -1:
+            self.sequence_end = self.num_total_images
         self.rgb_paths = self.rgb_paths[
             self.sequence_start : self.sequence_end : self.sequence_stride
         ]
