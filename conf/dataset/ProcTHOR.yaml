@@ -5,8 +5,8 @@ split: train
 scene: 0
 width: 300
 height: 300
-fx: 62.13203435596426
-fy: 62.13203435596426
+fx: 150.0
+fy: 150.0
 cx: 150.0
 cy: 150.0
 resized_width: -1

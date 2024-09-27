@@ -4,6 +4,8 @@ from omegaconf import DictConfig
 import open3d as o3d
 import numpy as np
 
+from rgbd_dataset.utils import invert_se3
+
 
 @hydra.main(version_base=None, config_path="conf", config_name="pcd_scene")
 def main(cfg: DictConfig):
@@ -23,7 +25,7 @@ def main(cfg: DictConfig):
                 obs["depth"].shape[1],
                 obs["depth"].shape[0],
                 obs["intrinsics"],
-                np.linalg.inv(obs["camera_pose"]),  # World to cam
+                invert_se3(obs["camera_pose"]),  # World to cam
                 scale=0.1,
             )
             geometries += [cam]

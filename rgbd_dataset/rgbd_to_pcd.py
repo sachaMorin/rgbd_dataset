@@ -1,6 +1,7 @@
 import numpy as np
 import open3d as o3d
-import cv2
+
+from .utils import invert_se3
 
 
 def rgbd_to_pcd(
@@ -35,7 +36,7 @@ def rgbd_to_pcd(
     pcd = o3d.geometry.PointCloud.create_from_rgbd_image(
         image=rgbd_image,
         intrinsic=intrinsics_o3d,
-        extrinsic=np.linalg.inv(camera_pose),  # World to cam
+        extrinsic=invert_se3(camera_pose),  # World to cam
     )
 
     return pcd

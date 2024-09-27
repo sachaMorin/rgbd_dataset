@@ -5,8 +5,8 @@ import json
 import cv2
 import numpy as np
 from torch.utils.data import Dataset
-from scipy.spatial.transform import Rotation
 
+from .utils import invert_se3
 from .rgbd_to_pcd import rgbd_to_pcd
 
 
@@ -81,7 +81,7 @@ class BaseRGBDDataset(Dataset):
             self.sequence_start : self.sequence_end : self.sequence_stride
         ]
         self.first_pose = self.se3_poses[0]
-        self.first_pose_inv = np.linalg.inv(self.first_pose)
+        self.first_pose_inv = invert_se3(self.first_pose)
 
     def __len__(self):
         return len(self.rgb_paths)

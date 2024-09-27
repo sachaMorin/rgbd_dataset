@@ -5,9 +5,9 @@ import numpy as np
 from typing import List
 from natsort import natsorted
 import json
-import cv2
 
 from ..BaseRGBDDataset import BaseRGBDDataset
+from ..utils import invert_se3
 
 
 class ProcTHOR(BaseRGBDDataset):
@@ -36,7 +36,7 @@ class ProcTHOR(BaseRGBDDataset):
         robot2cam = np.array(
             json.loads(open(robot2cam_path).read())["color_main"]
         ).reshape(4, 4)
-        cam2robot = np.linalg.inv(robot2cam)
+        cam2robot = invert_se3(robot2cam)
 
         pose_path = str(
             self.base_path / self.split / str(self.scene) / "pose" / "*.json"
