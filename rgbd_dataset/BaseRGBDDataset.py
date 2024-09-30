@@ -1,4 +1,4 @@
-from typing import Union, List
+from typing import Union, List, Callable
 from pathlib import Path
 
 import json
@@ -31,6 +31,8 @@ class BaseRGBDDataset(Dataset):
         fy: float = None,
         cx: float = None,
         cy: float = None,
+        rgb_transform: Union[Callable, None] = None,
+        depth_transform: Union[Callable, None] = None,
     ):
         super().__init__()
         self.dataset_name = dataset_name
@@ -54,6 +56,10 @@ class BaseRGBDDataset(Dataset):
         self.fy = fy
         self.cx = cx
         self.cy = cy
+
+        # Torch transforms
+        self.rgb_transform = rgb_transform
+        self.depth_transform = depth_transform
 
         # Parameters for rescaling intrinsics
         if self.resized_width == -1:
@@ -165,6 +171,12 @@ class BaseRGBDDataset(Dataset):
             )
 
         result["depth"] = result["depth"] / self.depth_scale
+
+        if self.rgb_transform is not None:
+            result["rgb"] = self.rgb_transform(result["rgb"])
+
+        if self.depth_transform is not None:
+            result["depth"] = self.depth_transform(result["depth"])
 
         return result
 
