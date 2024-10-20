@@ -1,9 +1,13 @@
-_target_: rgbd_dataset.datasets.Scannetpp.Scannetpp
+_target_: rgbd_dataset.datasets.Scannetpp.ScannetppCOLMAP
 dataset_name: "scannetpp"
 base_path: ???
 scene: 4318f8bb3c
 width: 1920
 height: 1440
+fx: 1437.56
+fy: 1437.54
+cx: 956.874
+cy: 723.627
 resized_width: -1
 resized_height: -1
 sequence_start: 0
