@@ -15,12 +15,14 @@ class RGBD(BaseRGBDDataset):
         depth_dir: str = "depth",
         pose_dir: str = "camera_pose",
         intrinsics_dir: str = "intrinsics",
+        pose_dict: bool = False,
         **kwargs,
     ):
         self.rgb_dir = rgb_dir
         self.pose_dir = pose_dir
         self.depth_dir = depth_dir
         self.intrinsics_dir = intrinsics_dir
+        self.pose_dict = pose_dict # Pose is in dict format from ROS transform. Otherwise assumees a 4x4 matrix
         super().__init__(**kwargs)
 
     def get_rgb_paths(self) -> List[str]:
@@ -39,8 +41,16 @@ class RGBD(BaseRGBDDataset):
         poses = []
         for path in pose_paths:
             pose = json.loads(open(path).read())
-            pose = np.array(pose).reshape((4, 4))
-            poses.append(pose)
+            if self.pose_dict:
+                pose_mx = np.eye(4)
+                t = pose["translation"]
+                pose_mx[:3, 3] = [t["x"], t["y"], t["z"]]
+                rot = pose["rotation"]
+                pose_mx[:3, :3] = R.from_quat((rot["x"], rot["y"], rot["z"], rot["w"]), scalar_first=False).as_matrix()
+            else:
+                pose_mx = np.array(pose).reshape((4, 4))
+
+            poses.append(pose_mx)
         return poses
 
     def get_intrinsic_matrices(self) -> List[np.array]:
