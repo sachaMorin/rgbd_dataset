@@ -63,7 +63,7 @@ def convert_angle_axis_to_matrix3(angle_axis):
 class SceneFun3D(BaseRGBDDataset):
     def __init__(self, base_path, scene, **kwargs):
         self.data_root_path = os.path.join(base_path)
-        self.visit_id = scene
+        self.visit_id = str(scene)
 
         self.scene_path = Path(self.data_root_path) / self.visit_id
         self.video_ids = [d.name for d in self.scene_path.iterdir() if d.is_dir()]
