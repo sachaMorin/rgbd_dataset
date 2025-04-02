@@ -61,17 +61,39 @@ def convert_angle_axis_to_matrix3(angle_axis):
 
 
 class SceneFun3D(BaseRGBDDataset):
-    def __init__(self, base_path, scene, **kwargs):
+    def __init__(self, base_path, scene, width, height, **kwargs):
         self.data_root_path = os.path.join(base_path)
-        self.visit_id = str(scene)
+        scene = str(scene)
+        self.visit_id = scene
 
         self.scene_path = Path(self.data_root_path) / self.visit_id
         self.video_ids = [d.name for d in self.scene_path.iterdir() if d.is_dir()]
         self.common_timestamps = self.get_common_timestamps()
 
+        width, height = self.get_frame_dimensions()
         print(f"Number of videos: {len(self.video_ids)}")
+        print(f"Width: {width}, Height: {height}")
+        super().__init__(
+            base_path=base_path, scene=scene, width=width, height=height, **kwargs
+        )
 
-        super().__init__(base_path=base_path, scene=scene, **kwargs)
+    def get_frame_dimensions(self) -> tuple:
+        """
+        Determines the width and height of a frame by reading the intrinsics of one random frame.
+
+        Returns:
+            tuple: A tuple containing the width and height (w, h).
+        """
+        random_video_id = self.video_ids[0]  # Select the first video ID
+        intrinsics_dict = self.scenefun3d_get_camera_intrinsics(
+            visit_id=self.visit_id, video_id=random_video_id
+        )
+        random_timestamp = next(iter(intrinsics_dict))  # Pick one random timestamp
+        intrinsics_path = intrinsics_dict[random_timestamp]
+        w, h, _, _, _, _ = self.scenefun3d_read_camera_intrinsics(
+            intrinsics_file_path=intrinsics_path, format="tuple"
+        )
+        return int(w), int(h)
 
     def get_common_timestamps(self) -> List[List[str]]:
         """
