@@ -6,9 +6,9 @@ from ..BaseRGBDDataset import BaseRGBDDataset
 import os
 import cv2
 
-# import logging
+import logging
 
-# log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 data_asset_to_path = {
     "lowres_wide": "<data_dir>/<visit_id>/<video_id>/lowres_wide/",
@@ -75,8 +75,8 @@ class SceneFun3D(BaseRGBDDataset):
         self.common_timestamps = self.get_common_timestamps()
 
         width, height = self.get_frame_dimensions()
-        # log.info(f"Number of videos: {len(self.video_ids)}")
-        # log.info(f"Width: {width}, Height: {height}")
+        log.info(f"Number of videos: {len(self.video_ids)}")
+        log.info(f"Width: {width}, Height: {height}")
         super().__init__(
             base_path=base_path, scene=scene, width=width, height=height, **kwargs
         )
@@ -134,7 +134,7 @@ class SceneFun3D(BaseRGBDDataset):
             )
             rgb_paths.extend(rgb_dict[ts] for ts in video_common_timestamps)
 
-        # log.info(f"Number of frames: {len(rgb_paths)}")
+        log.info(f"Number of frames: {len(rgb_paths)}")
         return rgb_paths
 
     def get_depth_paths(self) -> List[str]:
