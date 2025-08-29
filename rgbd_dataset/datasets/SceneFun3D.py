@@ -1,10 +1,11 @@
 import glob
 import numpy as np
-from typing import List
+from typing import List, Tuple
 from pathlib import Path
 from ..BaseRGBDDataset import BaseRGBDDataset
 import os
 import cv2
+import json
 
 import logging
 
@@ -178,6 +179,12 @@ class SceneFun3D(BaseRGBDDataset):
 
         return intrinsic_matrices
 
+    def get_descriptions(self) -> List[Tuple[str, str]]:
+        descriptions = self.scenefun3d_get_descriptions(visit_id=self.visit_id)
+        description_ids = [desc["desc_id"] for desc in descriptions]
+        description_texts = [desc["description"] for desc in descriptions]
+        return list(zip(description_ids, description_texts))
+
     def TrajStringToMatrix(self, traj_str):
         """
         Converts a line from the camera trajectory file into translation and rotation matrices.
@@ -213,6 +220,25 @@ class SceneFun3D(BaseRGBDDataset):
         Rt = np.linalg.inv(extrinsics)
 
         return (ts, Rt)
+
+    def scenefun3d_get_descriptions(self, visit_id):
+        """
+        Retrieve the natural language task descriptions for a specified scene.
+
+        Args:
+            visit_id (str or int): The identifier for the scene.
+
+        Returns:
+            (list): A list of descriptions, each represented as a dictionary.
+        """
+        descriptions_path = self.get_data_asset_path(
+            data_asset_identifier="descriptions", visit_id=visit_id
+        )
+
+        with open(descriptions_path, "r") as f:
+            descriptions_data = json.load(f)["descriptions"]
+
+        return descriptions_data
 
     def scenefun3d_get_camera_trajectory(
         self, visit_id, video_id, pose_source="colmap"
