@@ -34,6 +34,7 @@ data_asset_to_path = {
     "transform": "<data_dir>/<visit_id>/<video_id>/<video_id>_transform.npy",
     "annotations": "<data_dir>/<visit_id>/<visit_id>_annotations.json",
     "descriptions": "<data_dir>/<visit_id>/<visit_id>_descriptions.json",
+    "descriptions_test": "<data_dir>/descriptions.json",
     "motions": "<data_dir>/<visit_id>/<visit_id>_motions.json",
 }
 
@@ -179,10 +180,32 @@ class SceneFun3D(BaseRGBDDataset):
 
         return intrinsic_matrices
 
-    def get_descriptions(self) -> List[Tuple[str, str]]:
+    def get_descriptions(self, use_test: bool = False) -> List[Tuple[str, str]]:
+        if use_test:
+            return self.get_descriptions_test()
+
         descriptions = self.scenefun3d_get_descriptions(visit_id=self.visit_id)
         description_ids = [desc["desc_id"] for desc in descriptions]
         description_texts = [desc["description"] for desc in descriptions]
+        return list(zip(description_ids, description_texts))
+
+    def get_descriptions_test(self) -> List[Tuple[str, str]]:
+
+        descriptions_path = self.get_data_asset_path(
+            data_asset_identifier="descriptions_test", visit_id=visit_id
+        )
+
+        with open(descriptions_path, "r") as f:
+            descriptions_data = json.load(f)
+
+        # Filter descriptions to only those matching the visit_id
+        visit_id = str(visit_id)
+        filtered_descriptions = [
+            desc for desc in descriptions_data if str(desc.get("visit_id")) == visit_id
+        ]
+
+        description_ids = [desc["desc_id"] for desc in filtered_descriptions]
+        description_texts = [desc["description"] for desc in filtered_descriptions]
         return list(zip(description_ids, description_texts))
 
     def TrajStringToMatrix(self, traj_str):
