@@ -37,7 +37,7 @@ class BaseRGBDDataset(Dataset):
         super().__init__()
         self.dataset_name = dataset_name
         self.base_path = Path(base_path)
-        self.scene = scene
+        self.scene = str(scene)
         self.width = width
         self.height = height
         self.resized_width = resized_width
