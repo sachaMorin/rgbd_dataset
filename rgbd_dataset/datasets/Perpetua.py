@@ -22,8 +22,16 @@ class Perpetua(BaseRGBDDataset):
         self.pose_dir = pose_dir
         self.depth_dir = depth_dir
         self.intrinsics_dir = intrinsics_dir
+
         super().__init__(**kwargs)
+
         self.timestamps = self.get_timestamps()
+        self.virtual_start_time = self.get_virtual_start_time()
+
+    def get_virtual_start_time(self) -> str:
+        path_str = str(self.base_path / self.scene / "date.txt")
+        # TODO: check after format is finalized
+        return
 
     def get_timestamps(self) -> List[float]:
         path_str = str(self.base_path / self.scene / self.rgb_dir / "*.jpg")
@@ -37,6 +45,10 @@ class Perpetua(BaseRGBDDataset):
         timestamps = timestamps[
             self.sequence_start : self.sequence_end : self.sequence_stride
         ]
+
+        first_timestamp = timestamps[0]
+        timestamps = [ts - first_timestamp for ts in timestamps]
+
         return timestamps
 
     def get_rgb_paths(self) -> List[str]:
