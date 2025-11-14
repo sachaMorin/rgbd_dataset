@@ -5,8 +5,15 @@ from natsort import natsorted
 import json
 import yaml
 from scipy.spatial.transform import Rotation as R
+import cv2
+import re
 
 from ..BaseRGBDDataset import BaseRGBDDataset
+from ..rgbd_to_pcd import rgbd_to_pcd
+
+import logging
+
+log = logging.getLogger(__name__)
 
 
 class Perpetua(BaseRGBDDataset):
@@ -25,13 +32,28 @@ class Perpetua(BaseRGBDDataset):
 
         super().__init__(**kwargs)
 
-        self.timestamps = self.get_timestamps()
         self.virtual_start_time = self.get_virtual_start_time()
+        self.timestamps = self.get_timestamps()
 
     def get_virtual_start_time(self) -> str:
-        path_str = str(self.base_path / self.scene / "date.txt")
-        # TODO: check after format is finalized
-        return
+        path = self.base_path / self.scene / "date.txt"
+
+        # read the date string from the file like week1_tuesday_1400
+        # format: Week 1, Tuesday: 14:00
+        first_line = path.read_text().splitlines()[0].strip()
+
+        match = re.match(
+            r"Week\s*(\d+),\s*([A-Za-z]+):\s*(\d{1,2}):(\d{2})", first_line
+        )
+        if not match:
+            log.error(f"Unexpected date format: {first_line}")
+
+        week, day, hh, mm = match.groups()
+        day = day.lower()
+
+        virtual_time = f"week{week}_{day}_{hh}{mm}"
+
+        return virtual_time
 
     def get_timestamps(self) -> List[float]:
         path_str = str(self.base_path / self.scene / self.rgb_dir / "*.jpg")
@@ -47,9 +69,13 @@ class Perpetua(BaseRGBDDataset):
         ]
 
         first_timestamp = timestamps[0]
-        timestamps = [ts - first_timestamp for ts in timestamps]
+        rel_timestamps = [ts - first_timestamp for ts in timestamps]
 
-        return timestamps
+        final_timestamps = []
+        for t in rel_timestamps:
+            final_timestamps.append(f"{self.virtual_start_time}_{t:.2f}")
+
+        return final_timestamps
 
     def get_rgb_paths(self) -> List[str]:
         path_str = str(self.base_path / self.scene / self.rgb_dir / "*.jpg")
@@ -84,3 +110,56 @@ class Perpetua(BaseRGBDDataset):
             cm_mx = np.array(cm, dtype=float).reshape((3, 3))
             intrinsics.append(cm_mx)
         return intrinsics
+
+    def __getitem__(self, idx):
+        rgb = self.read_rgb(self.rgb_paths[idx])
+        depth = self.read_depth(self.depth_paths[idx])
+        pose = self.se3_poses[idx]
+        intrinsics = self.rescale_intrinsics(self.intrinsics[idx])
+        timestamp = self.timestamps[idx]
+
+        if rgb.shape[0] != self.resized_height or rgb.shape[1] != self.resized_width:
+            rgb = cv2.resize(
+                rgb,
+                (self.resized_width, self.resized_height),
+                interpolation=cv2.INTER_LINEAR,
+            )
+        if (
+            depth.shape[0] != self.resized_height
+            or depth.shape[1] != self.resized_width
+        ):
+            depth = cv2.resize(
+                depth,
+                (self.resized_width, self.resized_height),
+                interpolation=cv2.INTER_NEAREST,
+            )
+
+        if self.relative_pose:
+            pose = np.dot(self.first_pose_inv, pose)
+
+        result = dict(
+            rgb=rgb,
+            depth=depth,
+            camera_pose=pose,
+            intrinsics=intrinsics,
+            timestamp=timestamp,
+        )
+
+        if self.point_cloud:
+            result["point_cloud"] = rgbd_to_pcd(
+                **result,
+                width=self.resized_width,
+                height=self.resized_height,
+                depth_trunc=self.depth_trunc,
+                depth_scale=self.depth_scale,
+            )
+
+        result["depth"] = result["depth"] / self.depth_scale
+
+        if self.rgb_transform is not None:
+            result["rgb"] = self.rgb_transform(result["rgb"])
+
+        if self.depth_transform is not None:
+            result["depth"] = self.depth_transform(result["depth"])
+
+        return result
