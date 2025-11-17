@@ -142,7 +142,6 @@ class Perpetua(BaseRGBDDataset):
             depth=depth,
             camera_pose=pose,
             intrinsics=intrinsics,
-            timestamp=timestamp,
         )
 
         if self.point_cloud:
@@ -155,6 +154,7 @@ class Perpetua(BaseRGBDDataset):
             )
 
         result["depth"] = result["depth"] / self.depth_scale
+        result["timestamp"] = timestamp
 
         if self.rgb_transform is not None:
             result["rgb"] = self.rgb_transform(result["rgb"])
