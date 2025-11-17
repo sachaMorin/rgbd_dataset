@@ -131,7 +131,7 @@ class SemiStaticSim(BaseRGBDDataset):
         depth_data = np.load(path)
         depth = depth_data["frame"].squeeze()
         depth = (depth * self.depth_scale).astype(np.uint16)
-        return depth # or depth.T?
+        return depth 
 
     def __getitem__(self, idx):
         rgb = self.read_rgb(self.rgb_paths[idx])
