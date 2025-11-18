@@ -101,7 +101,12 @@ class SemiStaticSim(BaseRGBDDataset):
             pose = json.loads(open(path).read())
             position = pose["position"]
             rotation = pose["rotation"]
-            rot_mx = R.from_euler('xyz', [rotation['x'], rotation['y'], rotation['z']], degrees=True).as_matrix()
+            # Intrinsic: (Z-Y'-X'') is Rot(Z)Rot(Y)Rot(X)
+            # Extrinsic: (x-y-z) is Rot(Z)Rot(Y)Rot(X)
+            yaw, pitch = rotation['y'], rotation['x']
+            robot2world = R.from_euler('zyx', [0.0, yaw, 0.0], degrees=True).as_matrix()
+            robot2cam = R.from_euler('zyx', [0.0, 0.0, pitch], degrees=True).as_matrix()
+            rot_mx = robot2world @ robot2cam.T
             pose_mx = np.eye(4)
             pose_mx[0:3, 0:3] = rot_mx
             pose_mx[0:3, 3] = [position['x'], position['y'], position['z']]
