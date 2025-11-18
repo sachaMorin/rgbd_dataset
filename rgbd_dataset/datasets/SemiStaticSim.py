@@ -106,7 +106,13 @@ class SemiStaticSim(BaseRGBDDataset):
             yaw, pitch = rotation['y'], rotation['x']
             robot2world = R.from_euler('zyx', [0.0, yaw, 0.0], degrees=True).as_matrix()
             robot2cam = R.from_euler('zyx', [0.0, 0.0, pitch], degrees=True).as_matrix()
+            # The transpose 
             rot_mx = robot2world @ robot2cam.T
+            # This is equivalent to all operations above, the negation of the pitch
+            # transforms the ai2thor frame roright-handed: x(right), y(down), z(forward)
+            # rot_mx = R.from_euler('ZYX', [0.0, yaw, -pitch], degrees=True).as_matrix()
+            # Hence we need to also invert the y-position for things to be consistent
+            # pose_mx[0:3, 3] = [position['x'], -position['y'], position['z']]
             pose_mx = np.eye(4)
             pose_mx[0:3, 0:3] = rot_mx
             pose_mx[0:3, 3] = [position['x'], position['y'], position['z']]
