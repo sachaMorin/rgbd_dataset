@@ -1,8 +1,7 @@
 _target_: rgbd_dataset.datasets.SemiStaticSim.SemiStaticSim
 dataset_name: "semistaticsim"
-# base_path: ???
-base_path: /Users/miguelsaavedra/Documents/Projects/SemiStaticSim/generated_data/semistaticsim/test/0/0/privileged
-scene: 0
+base_path: /path/to/priviliged
+scene: run_0
 width: 640
 height: 640
 resized_width: -1
@@ -11,7 +10,11 @@ sequence_start: 0
 sequence_end: -1
 sequence_stride: 1
 relative_pose: False
-depth_scale: 1000.0
+depth_scale: 1.0
+fx: 320.0
+fy: 320.0
+cx: 320.0
+cy: 320.0
 point_cloud: true
 depth_trunc: 5.0
 img_dir: images

@@ -22,7 +22,8 @@ HOURS_IN_DAY = 24
 MINS_IN_HOUR = 60
 SECS_IN_MIN = 60
 HOURS_IN_WEEK = DAYS_IN_WEEK * HOURS_IN_DAY
-DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
 
 def read_parquets(parquet_path: str) -> dict:
     file_names = natsorted(glob.glob(parquet_path))
@@ -30,6 +31,7 @@ def read_parquets(parquet_path: str) -> dict:
     data_frames = [pl.read_parquet(file) for file in file_names]
     concatenated_df = pl.concat(data_frames, how="vertical")
     return concatenated_df
+
 
 class SemiStaticSim(BaseRGBDDataset):
     def __init__(
@@ -56,25 +58,24 @@ class SemiStaticSim(BaseRGBDDataset):
     def get_virtual_start_time(self, start_time: float) -> str:
         week = int(start_time // HOURS_IN_WEEK + 1)  # Data is in hours
         day = DAYS[int((start_time % HOURS_IN_WEEK) // HOURS_IN_DAY)]
-        # Get start min and hour 
+        # Get start min and hour
         hour = int(np.floor(start_time % HOURS_IN_DAY))
         minute = int((start_time * MINS_IN_HOUR) % MINS_IN_HOUR)
 
         virtual_time = f"week{week}_{day}_{hour:02d}{minute:02d}"
         return virtual_time
 
-
     def get_timestamps(self) -> List[float]:
-        path_str = str(self.base_path / f"run_{self.scene}" / "*.parquet")
+        path_str = str(self.base_path / self.scene / "*.parquet")
         df = read_parquets(path_str)
         timestamps = df["_timestamp"].to_numpy()
-        # Get virtual start time 
+        # Get virtual start time
         virtual_start_time = self.get_virtual_start_time(timestamps[0].item())
         timestamps = timestamps[
             self.sequence_start : self.sequence_end : self.sequence_stride
         ]
 
-        # Map hours to seconds 
+        # Map hours to seconds
         timestamps = timestamps * SECS_IN_MIN * MINS_IN_HOUR
 
         final_timestamps = []
@@ -84,29 +85,42 @@ class SemiStaticSim(BaseRGBDDataset):
         return final_timestamps
 
     def get_rgb_paths(self) -> List[str]:
-        path_str = str(self.base_path / f"run_{self.scene}" / self.img_dir / self.rgb_dir / "*.png")
+        path_str = str(
+            self.base_path / self.scene / self.img_dir / self.rgb_dir / "*.png"
+        )
         rgb_paths = natsorted(glob.glob(path_str))
         return rgb_paths
 
     def get_depth_paths(self) -> List[str]:
-        path_str = str(self.base_path / f"run_{self.scene}" / self.img_dir / self.depth_dir / "*.npz")
+        path_str = str(
+            self.base_path / self.scene / self.img_dir / self.depth_dir / "*.npz"
+        )
         depth_paths = natsorted(glob.glob(path_str))
         return depth_paths
-    
+
+    def read_depth(self, path: str) -> np.ndarray:
+        depth_data = np.load(path)
+        depth = depth_data["frame"].squeeze()
+        depth = depth.astype(np.uint16)
+        return depth
+
     def get_se3_poses(self) -> List[np.array]:
-        pose_path = str(self.base_path / f"run_{self.scene}" / self.pose_dir / "*.json")
+        pose_path = str(self.base_path / self.scene / self.pose_dir / "*.json")
         pose_paths = natsorted(glob.glob(pose_path))
         poses = []
         for path in pose_paths:
             pose = json.loads(open(path).read())
+
             position = pose["position"]
             rotation = pose["rotation"]
+
             # Intrinsic: (Z-Y'-X'') is Rot(Z)Rot(Y)Rot(X)
             # Extrinsic: (x-y-z) is Rot(Z)Rot(Y)Rot(X)
-            yaw, pitch = rotation['y'], rotation['x']
-            robot2world = R.from_euler('zyx', [0.0, yaw, 0.0], degrees=True).as_matrix()
-            robot2cam = R.from_euler('zyx', [0.0, 0.0, pitch], degrees=True).as_matrix()
-            # The transpose 
+            yaw, pitch = rotation["y"], rotation["x"]
+            robot2world = R.from_euler("zyx", [0.0, yaw, 0.0], degrees=True).as_matrix()
+            robot2cam = R.from_euler("zyx", [0.0, 0.0, pitch], degrees=True).as_matrix()
+
+            # The transpose
             rot_mx = robot2world @ robot2cam.T
             # This is equivalent to all operations above, the negation of the pitch
             # transforms the ai2thor frame roright-handed: x(right), y(down), z(forward)
@@ -115,34 +129,17 @@ class SemiStaticSim(BaseRGBDDataset):
             # pose_mx[0:3, 3] = [position['x'], -position['y'], position['z']]
             pose_mx = np.eye(4)
             pose_mx[0:3, 0:3] = rot_mx
-            pose_mx[0:3, 3] = [position['x'], -position['y'], position['z']]
+            pose_mx[0:3, 3] = [position["x"], -position["y"], position["z"]]
             poses.append(pose_mx)
+
         return poses
 
     def get_semantics_paths(self) -> List[str]:
-        path_str = str(self.base_path / f"run_{self.scene}" / self.img_dir / self.semantics_dir / "*.png")
+        path_str = str(
+            self.base_path / self.scene / self.img_dir / self.semantics_dir / "*.png"
+        )
         semantics_paths = natsorted(glob.glob(path_str))
         return semantics_paths
-
-    def get_intrinsic_matrices(self) -> List[np.array]:
-        intrinsic_path = str(self.base_path / f"run_{self.scene}"  / "camera_intrinsics.json")
-        paths = glob.glob(intrinsic_path)
-        cam_intrinsics = json.loads(open(paths[0]).read())
-        cam_matrix = np.eye(3)
-        cam_matrix[0, 0] = cam_intrinsics['fx']
-        cam_matrix[1, 1] = cam_intrinsics['fy']
-        cam_matrix[0, 2] = cam_intrinsics['cx']
-        cam_matrix[1, 2] = cam_intrinsics['cy']
-        intrinsics = []
-        # This already accounts for the stride
-        intrinsics = [cam_matrix] * len(self.rgb_paths)
-        return intrinsics
-
-    def read_depth(self, path: str) -> np.ndarray:
-        depth_data = np.load(path)
-        depth = depth_data["frame"].squeeze()
-        depth = (depth * self.depth_scale).astype(np.uint16)
-        return depth 
 
     def __getitem__(self, idx):
         rgb = self.read_rgb(self.rgb_paths[idx])
@@ -157,7 +154,10 @@ class SemiStaticSim(BaseRGBDDataset):
                 (self.resized_width, self.resized_height),
                 interpolation=cv2.INTER_LINEAR,
             )
-        if depth.shape[0] != self.resized_height or depth.shape[1] != self.resized_width:
+        if (
+            depth.shape[0] != self.resized_height
+            or depth.shape[1] != self.resized_width
+        ):
             depth = cv2.resize(
                 depth,
                 (self.resized_width, self.resized_height),
