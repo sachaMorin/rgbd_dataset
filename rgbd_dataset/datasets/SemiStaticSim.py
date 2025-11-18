@@ -101,7 +101,7 @@ class SemiStaticSim(BaseRGBDDataset):
     def read_depth(self, path: str) -> np.ndarray:
         depth_data = np.load(path)
         depth = depth_data["frame"].squeeze()
-        depth = depth.astype(np.uint16)
+        depth = depth.astype(np.float32)
         return depth
 
     def get_se3_poses(self) -> List[np.array]:
