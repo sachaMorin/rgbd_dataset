@@ -115,7 +115,7 @@ class SemiStaticSim(BaseRGBDDataset):
             # pose_mx[0:3, 3] = [position['x'], -position['y'], position['z']]
             pose_mx = np.eye(4)
             pose_mx[0:3, 0:3] = rot_mx
-            pose_mx[0:3, 3] = [position['x'], position['y'], position['z']]
+            pose_mx[0:3, 3] = [position['x'], -position['y'], position['z']]
             poses.append(pose_mx)
         return poses
 
