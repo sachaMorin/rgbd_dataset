@@ -64,7 +64,7 @@ class SemiStaticSim(BaseRGBDDataset):
     def get_pickupable_names(self) -> List[str]:
         pickupable_names_path = str(self.base_path / self.scene / "pickupable_names.json")
         pickupable_names = json.loads(open(pickupable_names_path).read())
-        pickupable_names = [split_camel_preserve_acronyms(name.split('|')[0]) for name in pickupable_names]
+        # pickupable_names = [split_camel_preserve_acronyms(name.split('|')[0]) for name in pickupable_names]
         return pickupable_names
 
     def get_receptacles_bbox(self) -> dict:
@@ -73,12 +73,14 @@ class SemiStaticSim(BaseRGBDDataset):
 
         new_receptacles_bbox = {}
         for key, value in receptacles_bbox.items():
-            object_name = split_camel_preserve_acronyms(key.split('|')[0])
-            new_receptacles_bbox[object_name] = value
+            # object_name = split_camel_preserve_acronyms(key.split('|')[0])
+            object_name = key
 
             for point in value['cornerPoints']:
                 point[1] = -point[1]
             value['center']['y'] = -value['center']['y']
+
+            new_receptacles_bbox[object_name] = value
 
         return new_receptacles_bbox
 
