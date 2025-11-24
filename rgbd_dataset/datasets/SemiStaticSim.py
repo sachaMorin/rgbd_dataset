@@ -32,6 +32,12 @@ def read_parquets(parquet_path: str) -> dict:
     concatenated_df = pl.concat(data_frames, how="vertical")
     return concatenated_df
 
+def split_camel_preserve_acronyms(name):
+    # Insert space between lowercase → uppercase
+    # OR between acronym → normal word
+    s = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', name)
+    s = re.sub(r'(?<=[A-Z])(?=[A-Z][a-z])', ' ', s)
+    return s.lower()
 
 class SemiStaticSim(BaseRGBDDataset):
     def __init__(
@@ -54,6 +60,27 @@ class SemiStaticSim(BaseRGBDDataset):
         self.semantics_paths = self.get_semantics_paths()
 
         self.timestamps = self.get_timestamps()
+
+    def get_pickupable_names(self) -> List[str]:
+        pickupable_names_path = str(self.base_path / self.scene / "pickupable_names.json")
+        pickupable_names = json.loads(open(pickupable_names_path).read())
+        pickupable_names = [split_camel_preserve_acronyms(name.split('|')[0]) for name in pickupable_names]
+        return pickupable_names
+
+    def get_receptacles_bbox(self) -> dict:
+        receptacles_bbox_path = str(self.base_path / self.scene / "receptacles_aabb.json")
+        receptacles_bbox = json.loads(open(receptacles_bbox_path).read())
+
+        new_receptacles_bbox = {}
+        for key, value in receptacles_bbox.items():
+            object_name = split_camel_preserve_acronyms(key.split('|')[0])
+            new_receptacles_bbox[object_name] = value
+
+            for point in value['cornerPoints']:
+                point[1] = -point[1]
+            value['center']['y'] = -value['center']['y']
+
+        return new_receptacles_bbox
 
     def get_virtual_start_time(self, start_time: float) -> str:
         week = int(start_time // HOURS_IN_WEEK + 1)  # Data is in hours
@@ -116,7 +143,7 @@ class SemiStaticSim(BaseRGBDDataset):
 
             # Intrinsic: (Z-Y'-X'') is Rot(Z)Rot(Y)Rot(X)
             # Extrinsic: (x-y-z) is Rot(Z)Rot(Y)Rot(X)
-            yaw, pitch = rotation["y"], rotation["x"]
+            yaw, pitch = rotation["y"], (rotation["x"] + 30)
             robot2world = R.from_euler("zyx", [0.0, yaw, 0.0], degrees=True).as_matrix()
             robot2cam = R.from_euler("zyx", [0.0, 0.0, pitch], degrees=True).as_matrix()
 
