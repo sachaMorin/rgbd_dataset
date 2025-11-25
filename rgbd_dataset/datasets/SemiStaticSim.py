@@ -145,7 +145,7 @@ class SemiStaticSim(BaseRGBDDataset):
 
             # Intrinsic: (Z-Y'-X'') is Rot(Z)Rot(Y)Rot(X)
             # Extrinsic: (x-y-z) is Rot(Z)Rot(Y)Rot(X)
-            yaw, pitch = rotation["y"], (rotation["x"] + 30)
+            yaw, pitch = rotation["y"], rotation["x"]
             robot2world = R.from_euler("zyx", [0.0, yaw, 0.0], degrees=True).as_matrix()
             robot2cam = R.from_euler("zyx", [0.0, 0.0, pitch], degrees=True).as_matrix()
 
