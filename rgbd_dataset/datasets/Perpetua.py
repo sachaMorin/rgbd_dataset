@@ -15,6 +15,13 @@ import logging
 
 log = logging.getLogger(__name__)
 
+DAYS_IN_WEEK = 7
+HOURS_IN_DAY = 24
+MINS_IN_HOUR = 60
+SECS_IN_MIN = 60
+HOURS_IN_WEEK = DAYS_IN_WEEK * HOURS_IN_DAY
+DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
 
 class Perpetua(BaseRGBDDataset):
     def __init__(
@@ -32,7 +39,7 @@ class Perpetua(BaseRGBDDataset):
 
         super().__init__(**kwargs)
 
-        self.virtual_start_time, self.start_time = self.get_virtual_start_time()
+        self.virtual_start_time, self.start_timestamp = self.get_virtual_start_time()
         self.timestamps = self.get_timestamps()
 
     def get_virtual_start_time(self) -> str:
@@ -41,18 +48,22 @@ class Perpetua(BaseRGBDDataset):
         # read the date string from the file like week1_tuesday_1400
         # format: Week 1, Tuesday: 14:00
         first_line = path.read_text().splitlines()[0].strip()
-        start_time = float(path.read_text().splitlines()[2].strip())
+        start_timestamp = float(path.read_text().splitlines()[2].strip())
 
-        match = re.match(r"Week\s*(\d+),\s*([A-Za-z]+):\s*(\d{1,2}):(\d{2})", first_line)
+        match = re.match(
+            r"Week\s*(\d+),\s*([A-Za-z]+):\s*(\d{1,2}):(\d{2})", first_line
+        )
         if not match:
             log.error(f"Unexpected date format: {first_line}")
 
         week, day, hh, mm = match.groups()
-        day = day.lower()
-
-        virtual_time = f"week{week}_{day}_{hh}{mm}"
-
-        return virtual_time, start_time
+        # Map to hours and compute virtual start time
+        week_int = int(week) - 1
+        day_int = DAYS.index(day.lower())
+        hour_int = int(hh)
+        minute_int = int(mm)    
+        start_hour = (week_int * HOURS_IN_WEEK) + (day_int * HOURS_IN_DAY) + hour_int + (minute_int / MINS_IN_HOUR)
+        return start_hour, start_timestamp
 
     def get_timestamps(self) -> List[float]:
         path_str = str(self.base_path / self.scene / self.rgb_dir / "*.jpg")
@@ -63,13 +74,15 @@ class Perpetua(BaseRGBDDataset):
             timestamp_str = filename.split(".")[0] + "." + filename.split(".")[1]
             timestamps.append(float(timestamp_str))
 
-        timestamps = timestamps[self.sequence_start : self.sequence_end : self.sequence_stride]
+        timestamps = timestamps[
+            self.sequence_start : self.sequence_end : self.sequence_stride
+        ]
 
-        rel_timestamps = [ts - self.start_time for ts in timestamps]
-
+        rel_timestamps = [ts - self.start_timestamp for ts in timestamps]
+    
         final_timestamps = []
         for t in rel_timestamps:
-            final_timestamps.append(f"{self.virtual_start_time}_{t:.2f}")
+            final_timestamps.append(self.virtual_start_time + t / (SECS_IN_MIN * MINS_IN_HOUR))
 
         return final_timestamps
 
@@ -94,7 +107,9 @@ class Perpetua(BaseRGBDDataset):
         return poses
 
     def get_intrinsic_matrices(self) -> List[np.array]:
-        intrinsic_path = str(self.base_path / str(self.scene) / self.intrinsics_dir / "*.yaml")
+        intrinsic_path = str(
+            self.base_path / str(self.scene) / self.intrinsics_dir / "*.yaml"
+        )
         paths = natsorted(glob.glob(intrinsic_path))
         intrinsics = []
         for path in paths:
@@ -118,7 +133,10 @@ class Perpetua(BaseRGBDDataset):
                 (self.resized_width, self.resized_height),
                 interpolation=cv2.INTER_LINEAR,
             )
-        if depth.shape[0] != self.resized_height or depth.shape[1] != self.resized_width:
+        if (
+            depth.shape[0] != self.resized_height
+            or depth.shape[1] != self.resized_width
+        ):
             depth = cv2.resize(
                 depth,
                 (self.resized_width, self.resized_height),
