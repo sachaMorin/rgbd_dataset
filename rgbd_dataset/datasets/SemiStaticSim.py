@@ -32,12 +32,14 @@ def read_parquets(parquet_path: str) -> dict:
     concatenated_df = pl.concat(data_frames, how="vertical")
     return concatenated_df
 
+
 def split_camel_preserve_acronyms(name):
     # Insert space between lowercase → uppercase
     # OR between acronym → normal word
-    s = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', name)
-    s = re.sub(r'(?<=[A-Z])(?=[A-Z][a-z])', ' ', s)
+    s = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", name)
+    s = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", s)
     return s.lower()
+
 
 class SemiStaticSim(BaseRGBDDataset):
     def __init__(
@@ -62,19 +64,25 @@ class SemiStaticSim(BaseRGBDDataset):
         self.timestamps = self.get_timestamps()
 
     def get_pickupable_names(self) -> List[str]:
-        pickupable_names_path = str(self.base_path / self.scene / "pickupable_names.json")
+        pickupable_names_path = str(
+            self.base_path / self.scene / "pickupable_names.json"
+        )
         pickupable_names = json.loads(open(pickupable_names_path).read())
         # pickupable_names = [split_camel_preserve_acronyms(name.split('|')[0]) for name in pickupable_names]
         return pickupable_names
 
     def get_receptacles_names(self) -> List[str]:
-        receptacles_names_path = str(self.base_path / self.scene / "receptacle_names.json")
+        receptacles_names_path = str(
+            self.base_path / self.scene / "receptacle_names.json"
+        )
         receptacles_names = json.loads(open(receptacles_names_path).read())
         # receptacles_names = [split_camel_preserve_acronyms(name.split('|')[0]) for name in receptacles_names]
         return receptacles_names
 
     def get_receptacles_bbox(self) -> dict:
-        receptacles_bbox_path = str(self.base_path / self.scene / "receptacles_aabb.json")
+        receptacles_bbox_path = str(
+            self.base_path / self.scene / "receptacles_aabb.json"
+        )
         receptacles_bbox = json.loads(open(receptacles_bbox_path).read())
 
         new_receptacles_bbox = {}
@@ -82,42 +90,23 @@ class SemiStaticSim(BaseRGBDDataset):
             # object_name = split_camel_preserve_acronyms(key.split('|')[0])
             object_name = key
 
-            for point in value['cornerPoints']:
+            for point in value["cornerPoints"]:
                 point[1] = -point[1]
-            value['center']['y'] = -value['center']['y']
+            value["center"]["y"] = -value["center"]["y"]
 
             new_receptacles_bbox[object_name] = value
 
         return new_receptacles_bbox
 
-    def get_virtual_start_time(self, start_time: float) -> str:
-        week = int(start_time // HOURS_IN_WEEK + 1)  # Data is in hours
-        day = DAYS[int((start_time % HOURS_IN_WEEK) // HOURS_IN_DAY)]
-        # Get start min and hour
-        hour = int(np.floor(start_time % HOURS_IN_DAY))
-        minute = int((start_time * MINS_IN_HOUR) % MINS_IN_HOUR)
-
-        virtual_time = f"week{week}_{day}_{hour:02d}{minute:02d}"
-        return virtual_time
-
     def get_timestamps(self) -> List[float]:
         path_str = str(self.base_path / self.scene / "*.parquet")
         df = read_parquets(path_str)
         timestamps = df["_timestamp"].to_numpy()
-        # Get virtual start time
-        virtual_start_time = self.get_virtual_start_time(timestamps[0].item())
         timestamps = timestamps[
             self.sequence_start : self.sequence_end : self.sequence_stride
         ]
 
-        # Map hours to seconds
-        timestamps = timestamps * SECS_IN_MIN * MINS_IN_HOUR
-
-        final_timestamps = []
-        for t in timestamps:
-            final_timestamps.append(f"{virtual_start_time}_{t:.2f}")
-
-        return final_timestamps
+        return timestamps
 
     def get_rgb_paths(self) -> List[str]:
         path_str = str(

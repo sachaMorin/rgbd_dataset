@@ -61,8 +61,13 @@ class Perpetua(BaseRGBDDataset):
         week_int = int(week) - 1
         day_int = DAYS.index(day.lower())
         hour_int = int(hh)
-        minute_int = int(mm)    
-        start_hour = (week_int * HOURS_IN_WEEK) + (day_int * HOURS_IN_DAY) + hour_int + (minute_int / MINS_IN_HOUR)
+        minute_int = int(mm)
+        start_hour = (
+            (week_int * HOURS_IN_WEEK)
+            + (day_int * HOURS_IN_DAY)
+            + hour_int
+            + (minute_int / MINS_IN_HOUR)
+        )
         return start_hour, start_timestamp
 
     def get_timestamps(self) -> List[float]:
@@ -79,10 +84,12 @@ class Perpetua(BaseRGBDDataset):
         ]
 
         rel_timestamps = [ts - self.start_timestamp for ts in timestamps]
-    
+
         final_timestamps = []
         for t in rel_timestamps:
-            final_timestamps.append(self.virtual_start_time + t / (SECS_IN_MIN * MINS_IN_HOUR))
+            final_timestamps.append(
+                self.virtual_start_time + t / (SECS_IN_MIN * MINS_IN_HOUR)
+            )
 
         return final_timestamps
 
