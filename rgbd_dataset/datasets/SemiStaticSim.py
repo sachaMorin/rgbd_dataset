@@ -4,7 +4,7 @@ import numpy as np
 from typing import List
 from natsort import natsorted
 import json
-from copy import copy
+from copy import deepcopy
 from scipy.spatial.transform import Rotation as R
 import cv2
 import re
@@ -69,11 +69,11 @@ class SemiStaticSim(BaseRGBDDataset):
     def get_receptacles_bbox(self) -> dict:
         new_receptacles_bbox = {}
         for object_name in self.get_receptacles_names():
-            receptacle_bbox = copy(self.sssd_data.get_receptacle_aabb(object_name))
+            receptacle_bbox = deepcopy(self.sssd_data.get_receptacle_aabb(object_name))
 
             for point in receptacle_bbox["cornerPoints"]:
-                point[1] = -point[1]
-            receptacle_bbox["center"]["y"] = -receptacle_bbox["center"]["y"]
+                point[1] = point[1]
+            receptacle_bbox["center"]["y"] = receptacle_bbox["center"]["y"]
             new_receptacles_bbox[object_name] = receptacle_bbox
 
         return new_receptacles_bbox
