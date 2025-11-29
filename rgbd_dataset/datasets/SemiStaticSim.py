@@ -72,8 +72,8 @@ class SemiStaticSim(BaseRGBDDataset):
             receptacle_bbox = deepcopy(self.sssd_data.get_receptacle_aabb(object_name))
 
             for point in receptacle_bbox["cornerPoints"]:
-                point[1] = point[1]
-            receptacle_bbox["center"]["y"] = receptacle_bbox["center"]["y"]
+                point[1] = -point[1]
+            receptacle_bbox["center"]["y"] = -receptacle_bbox["center"]["y"]
             new_receptacles_bbox[object_name] = receptacle_bbox
 
         return new_receptacles_bbox
