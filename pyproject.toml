@@ -4,6 +4,9 @@ version = "0.0.0"
 dependencies = [
     "torch",
     "torchvision",
+    "jax",
+    "flax",
+    "polars",
     "open3d",
     "natsort",
     "opencv-python",
