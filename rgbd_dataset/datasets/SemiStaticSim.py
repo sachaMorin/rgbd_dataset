@@ -98,6 +98,15 @@ class SemiStaticSim(BaseRGBDDataset):
 
         return new_receptacles_bbox
 
+    def get_pickupable_to_receptacles(self) -> dict:
+        pickupable_to_receptacles_path = str(
+            self.base_path / self.scene / "pickupable_to_receptacle.json"
+        )
+        pickupable_to_receptacles = json.loads(
+            open(pickupable_to_receptacles_path).read()
+        )
+        return pickupable_to_receptacles
+
     def get_timestamps(self) -> List[float]:
         path_str = str(self.base_path / self.scene / "*.parquet")
         df = read_parquets(path_str)
