@@ -1,28 +1,21 @@
 import glob
-import os
 import polars as pl
 import numpy as np
 from typing import List
 from natsort import natsorted
 import json
-import yaml
+from copy import copy
 from scipy.spatial.transform import Rotation as R
 import cv2
 import re
 
 from ..BaseRGBDDataset import BaseRGBDDataset
 from ..rgbd_to_pcd import rgbd_to_pcd
+from ..data_utils import load_sssd, GeneratedSemiStaticData
 
 import logging
 
 log = logging.getLogger(__name__)
-
-DAYS_IN_WEEK = 7
-HOURS_IN_DAY = 24
-MINS_IN_HOUR = 60
-SECS_IN_MIN = 60
-HOURS_IN_WEEK = DAYS_IN_WEEK * HOURS_IN_DAY
-DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 
 
 def read_parquets(parquet_path: str) -> dict:
@@ -59,58 +52,39 @@ class SemiStaticSim(BaseRGBDDataset):
 
         super().__init__(**kwargs)
 
+        self.sssd_data: GeneratedSemiStaticData = load_sssd(self.base_path / self.scene)
         self.semantics_paths = self.get_semantics_paths()
-
         self.timestamps = self.get_timestamps()
+        self.get_pickupable_names()
+        self.get_receptacles_names()
+        self.get_receptacles_bbox()
+        self.get_pickupable_to_receptacles()
 
     def get_pickupable_names(self) -> List[str]:
-        pickupable_names_path = str(
-            self.base_path / self.scene / "pickupable_names.json"
-        )
-        pickupable_names = json.loads(open(pickupable_names_path).read())
-        # pickupable_names = [split_camel_preserve_acronyms(name.split('|')[0]) for name in pickupable_names]
-        return pickupable_names
+        return self.sssd_data.pickupables_in_scene
 
     def get_receptacles_names(self) -> List[str]:
-        receptacles_names_path = str(
-            self.base_path / self.scene / "receptacle_names.json"
-        )
-        receptacles_names = json.loads(open(receptacles_names_path).read())
-        # receptacles_names = [split_camel_preserve_acronyms(name.split('|')[0]) for name in receptacles_names]
-        return receptacles_names
+        return self.sssd_data.receptacles_in_scene
 
     def get_receptacles_bbox(self) -> dict:
-        receptacles_bbox_path = str(
-            self.base_path / self.scene / "receptacles_aabb.json"
-        )
-        receptacles_bbox = json.loads(open(receptacles_bbox_path).read())
-
         new_receptacles_bbox = {}
-        for key, value in receptacles_bbox.items():
-            # object_name = split_camel_preserve_acronyms(key.split('|')[0])
-            object_name = key
+        for object_name in self.get_receptacles_names():
+            receptacle_bbox = copy(self.sssd_data.get_receptacle_aabb(object_name))
 
-            for point in value["cornerPoints"]:
+            for point in receptacle_bbox["cornerPoints"]:
                 point[1] = -point[1]
-            value["center"]["y"] = -value["center"]["y"]
-
-            new_receptacles_bbox[object_name] = value
+            receptacle_bbox["center"]["y"] = -receptacle_bbox["center"]["y"]
+            new_receptacles_bbox[object_name] = receptacle_bbox
 
         return new_receptacles_bbox
 
     def get_pickupable_to_receptacles(self) -> dict:
-        pickupable_to_receptacles_path = str(
-            self.base_path / self.scene / "pickupable_to_receptacle.json"
-        )
-        pickupable_to_receptacles = json.loads(
-            open(pickupable_to_receptacles_path).read()
-        )
-        return pickupable_to_receptacles
+        return self.sssd_data.pickupable_to_receptacle
 
     def get_timestamps(self) -> List[float]:
-        path_str = str(self.base_path / self.scene / "*.parquet")
-        df = read_parquets(path_str)
-        timestamps = df["_timestamp"].to_numpy()
+        timestamps = np.concatenate(
+            [data._timestamp for data in self.sssd_data.get_generator_of_selves()]
+        )
         timestamps = timestamps[
             self.sequence_start : self.sequence_end : self.sequence_stride
         ]
@@ -119,23 +93,17 @@ class SemiStaticSim(BaseRGBDDataset):
 
     def get_rgb_paths(self) -> List[str]:
         path_str = str(
-            self.base_path / self.scene / self.img_dir / self.rgb_dir / "*.png"
+            self.base_path / self.scene / self.img_dir / self.rgb_dir / "*.jpg"
         )
         rgb_paths = natsorted(glob.glob(path_str))
         return rgb_paths
 
     def get_depth_paths(self) -> List[str]:
         path_str = str(
-            self.base_path / self.scene / self.img_dir / self.depth_dir / "*.npz"
+            self.base_path / self.scene / self.img_dir / self.depth_dir / "*.png"
         )
         depth_paths = natsorted(glob.glob(path_str))
         return depth_paths
-
-    def read_depth(self, path: str) -> np.ndarray:
-        depth_data = np.load(path)
-        depth = depth_data["frame"].squeeze()
-        depth = depth.astype(np.float32)
-        return depth
 
     def get_se3_poses(self) -> List[np.array]:
         pose_path = str(self.base_path / self.scene / self.pose_dir / "*.json")
