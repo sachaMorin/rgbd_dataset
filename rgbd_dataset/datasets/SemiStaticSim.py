@@ -69,16 +69,6 @@ class SemiStaticSim(BaseRGBDDataset):
             corners_transformed = (LHS_TO_RHS @ corners_hom.T).T
             bbox["cornerPoints"] = corners_transformed[:, :3].tolist()
 
-            # Process center
-            c = bbox["center"]
-            center_hom = np.array([c["x"], c["y"], c["z"], 1.0])
-            center_new = LHS_TO_RHS @ center_hom
-            
-            bbox["center"] = {
-                "x": center_new[0],
-                "y": center_new[1],
-                "z": center_new[2]
-            }
             new_receptacles_bbox[object_name] = bbox
 
         return new_receptacles_bbox
