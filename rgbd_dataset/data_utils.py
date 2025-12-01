@@ -13,6 +13,12 @@ from flax import struct
 from jax import numpy as jnp
 from pathlib import Path
 
+def split_camel_preserve_acronyms(name):
+    # Insert space between lowercase → uppercase
+    # OR between acronym → normal word
+    s = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", name)
+    s = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", s)
+    return s.lower()
 
 def thin2wide(assignment, receptacles_in_scene):
     def do_for_each_p(r_or_n_value):

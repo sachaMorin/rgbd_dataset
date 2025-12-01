@@ -11,27 +11,17 @@ import re
 
 from ..BaseRGBDDataset import BaseRGBDDataset
 from ..rgbd_to_pcd import rgbd_to_pcd
-from ..data_utils import load_sssd, GeneratedSemiStaticData
+from ..data_utils import (
+    load_sssd,
+    GeneratedSemiStaticData,
+    split_camel_preserve_acronyms,
+)
 
 import logging
 
 log = logging.getLogger(__name__)
 
-
-def read_parquets(parquet_path: str) -> dict:
-    file_names = natsorted(glob.glob(parquet_path))
-    # Read all parquet files and concatenate them
-    data_frames = [pl.read_parquet(file) for file in file_names]
-    concatenated_df = pl.concat(data_frames, how="vertical")
-    return concatenated_df
-
-
-def split_camel_preserve_acronyms(name):
-    # Insert space between lowercase → uppercase
-    # OR between acronym → normal word
-    s = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", name)
-    s = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", s)
-    return s.lower()
+LHS_TO_RHS = np.array([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
 
 
 class SemiStaticSim(BaseRGBDDataset):
@@ -42,11 +32,13 @@ class SemiStaticSim(BaseRGBDDataset):
         depth_dir: str = "depth",
         semantics_dir: str = "semantics",
         pose_dir: str = "poses",
+        cam_offset: float = 0.675,
         **kwargs,
     ):
         self.img_dir = img_dir
         self.rgb_dir = rgb_dir
         self.pose_dir = pose_dir
+        self.cam_offset = cam_offset
         self.depth_dir = depth_dir
         self.semantics_dir = semantics_dir
 
@@ -69,12 +61,25 @@ class SemiStaticSim(BaseRGBDDataset):
     def get_receptacles_bbox(self) -> dict:
         new_receptacles_bbox = {}
         for object_name in self.get_receptacles_names():
-            receptacle_bbox = deepcopy(self.sssd_data.get_receptacle_aabb(object_name))
+            bbox = deepcopy(self.sssd_data.get_receptacle_aabb(object_name))
 
-            for point in receptacle_bbox["cornerPoints"]:
-                point[1] = -point[1]
-            receptacle_bbox["center"]["y"] = -receptacle_bbox["center"]["y"]
-            new_receptacles_bbox[object_name] = receptacle_bbox
+            # Process corners
+            corners = np.array(bbox["cornerPoints"])
+            corners_hom = np.pad(corners, ((0, 0), (0, 1)), constant_values=1)
+            corners_transformed = (LHS_TO_RHS @ corners_hom.T).T
+            bbox["cornerPoints"] = corners_transformed[:, :3].tolist()
+
+            # Process center
+            c = bbox["center"]
+            center_hom = np.array([c["x"], c["y"], c["z"], 1.0])
+            center_new = LHS_TO_RHS @ center_hom
+            
+            bbox["center"] = {
+                "x": center_new[0],
+                "y": center_new[1],
+                "z": center_new[2]
+            }
+            new_receptacles_bbox[object_name] = bbox
 
         return new_receptacles_bbox
 
@@ -109,29 +114,39 @@ class SemiStaticSim(BaseRGBDDataset):
         pose_path = str(self.base_path / self.scene / self.pose_dir / "*.json")
         pose_paths = natsorted(glob.glob(pose_path))
         poses = []
+
         for path in pose_paths:
-            pose = json.loads(open(path).read())
+            with open(path, "r") as f:
+                pose_data = json.load(f)
 
-            position = pose["position"]
-            rotation = pose["rotation"]
+            position = pose_data["position"]
+            rotation = pose_data["rotation"]
 
-            # Intrinsic: (Z-Y'-X'') is Rot(Z)Rot(Y)Rot(X)
-            # Extrinsic: (x-y-z) is Rot(Z)Rot(Y)Rot(X)
-            yaw, pitch = rotation["y"], rotation["x"]
-            robot2world = R.from_euler("zyx", [0.0, yaw, 0.0], degrees=True).as_matrix()
-            robot2cam = R.from_euler("zyx", [0.0, 0.0, pitch], degrees=True).as_matrix()
+            # 1. Construct the Matrix in the ORIGINAL Unity Frame (Left-Handed)
+            # Unity Rotation = Yaw (Global Y) * Pitch (Local X)
+            yaw = rotation["y"]
+            pitch = rotation["x"]
 
-            # The transpose
-            rot_mx = robot2world @ robot2cam.T
-            # This is equivalent to all operations above, the negation of the pitch
-            # transforms the ai2thor frame roright-handed: x(right), y(down), z(forward)
-            # rot_mx = R.from_euler('ZYX', [0.0, yaw, -pitch], degrees=True).as_matrix()
-            # Hence we need to also invert the y-position for things to be consistent
-            # pose_mx[0:3, 3] = [position['x'], -position['y'], position['z']]
-            pose_mx = np.eye(4)
-            pose_mx[0:3, 0:3] = rot_mx
-            pose_mx[0:3, 3] = [position["x"], -position["y"], position["z"]]
-            poses.append(pose_mx)
+            # Create rotations.
+            # Note on AI2-THOR/Unity:
+            # Yaw rotates around the global UP (Y).
+            # Pitch rotates around the local Right.
+            r_yaw = R.from_euler("y", yaw, degrees=True).as_matrix()
+            r_pitch = R.from_euler("x", pitch, degrees=True).as_matrix()
+
+            # Combined rotation in Unity Frame
+            rot_unity = r_yaw @ r_pitch
+
+            # Full Unity Pose Matrix
+            pose_unity = np.eye(4)
+            pose_unity[0:3, 0:3] = rot_unity
+            pose_unity[0:3, 3] = [position["x"], position["y"] + self.cam_offset, position["z"]]
+
+            # 2. Apply Change of Basis: P_new = T * P_old * T_inv
+            # Note: we do not invert T because T is its own inverse
+            pose_rhs = LHS_TO_RHS @ pose_unity @ LHS_TO_RHS
+
+            poses.append(pose_rhs)
 
         return poses
 
