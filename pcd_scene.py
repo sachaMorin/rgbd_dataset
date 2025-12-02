@@ -49,6 +49,16 @@ def main(cfg: DictConfig):
         )
         geometries += [frame]
 
+    if cfg.draw_boxes:
+        bboxes = dataset.get_receptacles_bbox()
+        for bbox in bboxes.values():
+            corners = np.array(bbox["cornerPoints"], dtype=np.float64)
+            bbox = o3d.geometry.OrientedBoundingBox.create_from_points(
+                    o3d.utility.Vector3dVector(corners)
+                )
+            bbox.color = (0, 1, 0)
+            geometries += [bbox]
+
     o3d.visualization.draw_geometries(geometries)
 
 

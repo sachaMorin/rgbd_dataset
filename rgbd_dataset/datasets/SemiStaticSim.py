@@ -61,7 +61,7 @@ class SemiStaticSim(BaseRGBDDataset):
     def get_receptacles_bbox(self) -> dict:
         new_receptacles_bbox = {}
         for object_name in self.get_receptacles_names():
-            bbox = deepcopy(self.sssd_data.get_receptacle_aabb(object_name))
+            bbox = deepcopy(self.sssd_data.get_receptacle_oobb(object_name))
 
             # Process corners
             corners = np.array(bbox["cornerPoints"])

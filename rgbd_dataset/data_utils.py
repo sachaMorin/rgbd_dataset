@@ -88,7 +88,6 @@ class GeneratedSemiStaticData:
             return dataclasses.asdict(self)[item]
         raise NotImplementedError()
 
-    @property
     def get_receptacle_oobb(self, receptacle_name) -> Dict[str, Dict]:
         """Get the receptacle OOBB information"""
         return self.receptacles_oobb[receptacle_name]
