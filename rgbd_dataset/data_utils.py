@@ -231,7 +231,12 @@ class GeneratedSemiStaticData:
             ITEMS[key] = jnp.array(df[key[1:]]).squeeze()
 
         if len(ITEMS["_assignment"].shape) == 2:
-            ITEMS["_assignment"] = thin2wide(ITEMS["_assignment"], self.receptacles_in_scene)
+            # edge case: the parquet contains a single datapoint
+            for key in self.TimeVaryingKeys():
+                ITEMS[key] = ITEMS[key][None]
+
+        #if len(ITEMS["_assignment"].shape) == 2:
+        #    ITEMS["_assignment"] = thin2wide(ITEMS["_assignment"], self.receptacles_in_scene)
 
         self = self.replace(**ITEMS)
         return self
@@ -389,7 +394,7 @@ class GeneratedSemiStaticData:
             )
 
         num_full_batches = self._timestamp.shape[0] // batch_size
-        leftover_data = self._timestamp.shape[0] - num_full_batches
+        leftover_data = self._timestamp.shape[0] - num_full_batches * batch_size
 
         # todo write some code to find the next id to write in os.path.join(target_dir, f"scan_{i}.parquet"))
         existing = [f for f in os.listdir(target_dir) if f.startswith("scan_") and f.endswith(".parquet")]
