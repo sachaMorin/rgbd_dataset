@@ -13,12 +13,14 @@ from flax import struct
 from jax import numpy as jnp
 from pathlib import Path
 
+
 def split_camel_preserve_acronyms(name):
     # Insert space between lowercase → uppercase
     # OR between acronym → normal word
     s = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", name)
     s = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", s)
     return s.lower()
+
 
 def thin2wide(assignment, receptacles_in_scene):
     def do_for_each_p(r_or_n_value):
@@ -47,7 +49,7 @@ def path_2_parts(path: str | Path) -> Tuple[str, int, jax.random.PRNGKey]:
             procthor_split = parts[i]
             procthor_index = int(parts[i + 1])
             jax_seed = int(parts[i + 2])
-            return procthor_split, procthor_index, jax_seed 
+            return procthor_split, procthor_index, jax_seed
 
 
 @struct.dataclass
@@ -55,6 +57,7 @@ class GeneratedSemiStaticData:
     split: str
     house_id: str
     jax_key: jax.random.PRNGKey  # seed
+    dt: float
 
     _assignment: jnp.ndarray
     _timestamp: jnp.ndarray
@@ -70,10 +73,10 @@ class GeneratedSemiStaticData:
     pickupable_to_receptacle: Dict[str, str]
     receptacles_oobb: Dict[str, Dict]
 
-    is_single_timestamp: bool  # Is self sliced at a timestamp (single timestamp strict)?
-    is_single_pickupable: (
-        bool  # Is self sliced at a pickupable (single pickupable strict and also single timestamp strict)?
+    is_single_timestamp: (
+        bool  # Is self sliced at a timestamp (single timestamp strict)?
     )
+    is_single_pickupable: bool  # Is self sliced at a pickupable (single pickupable strict and also single timestamp strict)?
 
     parquet_paths: List[str]
 
@@ -105,8 +108,16 @@ class GeneratedSemiStaticData:
     @property
     def global_length(self):
         """Total number of timesteps across all parquets"""
-        temp_self = self.replace(parquet_id=len(self.parquet_paths) - 1).resolve_parquet()
-        return (len(self.parquet_paths) - 1) * self.original_batch_size + temp_self._timestamp.shape[0]
+
+        if len(self.parquet_paths) == 0:
+            return self._timestamp.shape[0]
+
+        temp_self = self.replace(
+            parquet_id=len(self.parquet_paths) - 1
+        ).resolve_parquet()
+        return (
+            len(self.parquet_paths) - 1
+        ) * self.original_batch_size + temp_self._timestamp.shape[0]
 
     def _resolve_original_parent(self) -> Self:
         """Recursively resolve to the original parent if sliced, otherwise return self"""
@@ -114,7 +125,9 @@ class GeneratedSemiStaticData:
             return self
         return self.parent._resolve_original_parent()
 
-    def take_by_global_timestep(self, stop_or_start, stop=None, step=None, indices=None) -> Self:
+    def take_by_global_timestep(
+        self, stop_or_start, stop=None, step=None, indices=None
+    ) -> Self:
         """Index a slice of data across all parquets
         self.take_by_global_timestep(20, 50)  # Take data from index 20 (inclusive) to 50 (non inclusive) across all parquets
         self.take_by_global_timestep(None)    # Takes all data from all parquets
@@ -137,13 +150,17 @@ class GeneratedSemiStaticData:
             if parquet_id not in parquet_id_to_timestep_id:
                 parquet_id_to_timestep_id[parquet_id] = []
             parquet_id_to_timestep_id[parquet_id].append(timestep_id)
-        parquet_id_to_timestep_id = {k: jnp.array(v) for k, v in parquet_id_to_timestep_id.items()}
+        parquet_id_to_timestep_id = {
+            k: jnp.array(v) for k, v in parquet_id_to_timestep_id.items()
+        }
 
         ret = []
         for parquet_id, timestep_ids in parquet_id_to_timestep_id.items():
             self = self.replace(parquet_id=parquet_id, timestep=0).resolve_parquet()
 
-            ret.append(self.replace(**{k: v[timestep_ids] for k, v in self.TimeVaryingItems()}))
+            ret.append(
+                self.replace(**{k: v[timestep_ids] for k, v in self.TimeVaryingItems()})
+            )
 
         ret_self = ret[0]
         for self in ret[1:]:
@@ -189,7 +206,10 @@ class GeneratedSemiStaticData:
         self = self.replace(timestep=self.timestep - 1)
         if self.timestep < 0:
             if self.parquet_id > 0:
-                self = self.replace(parquet_id=self.parquet_id - 1, timestep=self.original_batch_size-1)
+                self = self.replace(
+                    parquet_id=self.parquet_id - 1,
+                    timestep=self.original_batch_size - 1,
+                )
                 self = self.resolve_parquet()
             else:
                 print("WARNING: all generated semi static object steps are DONE!")
@@ -235,7 +255,7 @@ class GeneratedSemiStaticData:
             for key in self.TimeVaryingKeys():
                 ITEMS[key] = ITEMS[key][None]
 
-        #if len(ITEMS["_assignment"].shape) == 2:
+        # if len(ITEMS["_assignment"].shape) == 2:
         #    ITEMS["_assignment"] = thin2wide(ITEMS["_assignment"], self.receptacles_in_scene)
 
         self = self.replace(**ITEMS)
@@ -246,7 +266,9 @@ class GeneratedSemiStaticData:
         """Slice self at current timestep index __get_item__(timestamp)
         where it retusn self as opposed to an element in the container"""
         return self.replace(
-            **{k: v[self.timestep] for k, v in self.TimeVaryingItems()}, is_single_timestamp=True, parent=self
+            **{k: v[self.timestep] for k, v in self.TimeVaryingItems()},
+            is_single_timestamp=True,
+            parent=self,
         )
 
     @property
@@ -260,7 +282,12 @@ class GeneratedSemiStaticData:
             new_self = current_time_self.replace(
                 pickupable_names=[p],
                 receptacle_names=self.pickupable_to_receptacle[p],
-                **({k: (v[i] if "timestamp" not in k else v) for k, v in current_time_self.TimeVaryingItems()}),
+                **(
+                    {
+                        k: (v[i] if "timestamp" not in k else v)
+                        for k, v in current_time_self.TimeVaryingItems()
+                    }
+                ),
                 is_single_pickupable=True,
                 parent=current_time_self,
             )
@@ -277,13 +304,18 @@ class GeneratedSemiStaticData:
                 if self._assignment[assignment] == 1
                 else f"Pickupable {pickupable_name} was unobserved"
             )
-        return self.pickupable_selves_at_current_time[pickupable_name].current_receptacle_for_this_pickupable(
+        return self.pickupable_selves_at_current_time[
             pickupable_name
-        )
+        ].current_receptacle_for_this_pickupable(pickupable_name)
 
-    def is_this_pickupable_in_the_OOB_FAKE_RECEPTACLE(self, pickupable_name: str) -> bool:
+    def is_this_pickupable_in_the_OOB_FAKE_RECEPTACLE(
+        self, pickupable_name: str
+    ) -> bool:
         """Check if a given pickupable is currently in the OOB_FAKE_RECEPTACLE"""
-        return self.current_receptacle_for_this_pickupable(pickupable_name) == "OOB_FAKE_RECEPTACLE"
+        return (
+            self.current_receptacle_for_this_pickupable(pickupable_name)
+            == "OOB_FAKE_RECEPTACLE"
+        )
 
     def get_singletimestamp_prototype(self) -> Self:
         """
@@ -292,7 +324,12 @@ class GeneratedSemiStaticData:
         kwargs = {}
         for k, v in self.self_at_current_time.TimeVaryingItems():
             if "assignment" in k:
-                kwargs[k] = jnp.ones((len(self.pickupables_in_scene), len(self.receptacles_in_scene))) * jnp.nan
+                kwargs[k] = (
+                    jnp.ones(
+                        (len(self.pickupables_in_scene), len(self.receptacles_in_scene))
+                    )
+                    * jnp.nan
+                )
             else:
                 kwargs[k] = jnp.ones_like(v) * jnp.nan
         return self.replace(
@@ -302,6 +339,8 @@ class GeneratedSemiStaticData:
             is_single_pickupable=False,
             pickupable_names=self.pickupables_in_scene,
             receptacle_names=self.receptacles_in_scene,
+            parquet_paths=[],
+            parquet_id=0,
         )
 
     def concat(self, other_self: Self):
@@ -311,7 +350,10 @@ class GeneratedSemiStaticData:
 
         if self.is_single_timestamp:
             # the current self is a point
-            self = self.replace(**{k: v[None] for k, v in self.TimeVaryingItems()}, is_single_timestamp=False)
+            self = self.replace(
+                **{k: v[None] for k, v in self.TimeVaryingItems()},
+                is_single_timestamp=False,
+            )
 
         kwargs = {}
         for k, v in self.TimeVaryingItems():
@@ -323,23 +365,86 @@ class GeneratedSemiStaticData:
         concatenated_self = self.replace(**kwargs)
         return concatenated_self
 
+    def remove_nan_sentinel(self):
+        if jnp.isnan(self._timestamp[0]).any():
+            self = self.replace(**{k: v[1:] for k, v in self.TimeVaryingItems()})
+            assert not jnp.isnan(self._timestamp[0]).any()
+        return self
+
+    def backprop_majors(self):
+        UNIQUE_TIMESTAMPS, UNIQUE_TIMESTAMP_INDEXES, UNIQUE_TIMESTAMP_COUNTS = (
+            jnp.unique(self._timestamp, return_counts=True, return_index=True)
+        )
+        UNIQUE_TIMESTAMPS = list(map(float, UNIQUE_TIMESTAMPS))
+
+        self_summed_majors = self.sum_up_minors_into_major(verbose=True)
+        for i, (
+            unique_timestamp,
+            unique_timestamp_index,
+            unique_timestamp_count,
+        ) in enumerate(
+            zip(UNIQUE_TIMESTAMPS, UNIQUE_TIMESTAMP_INDEXES, UNIQUE_TIMESTAMP_COUNTS)
+        ):
+
+            major_index = jnp.argmax(
+                self_summed_majors._timestamp == int(unique_timestamp)
+            )
+            major_assignment = self_summed_majors._assignment[major_index]
+
+            if i + 1 < len(UNIQUE_TIMESTAMP_INDEXES):
+                slice = self._assignment.at[
+                    UNIQUE_TIMESTAMP_INDEXES[i] : UNIQUE_TIMESTAMP_INDEXES[i + 1]
+                ]
+            else:
+                slice = self._assignment.at[UNIQUE_TIMESTAMP_INDEXES[i] :]
+
+            sliced = slice.get()
+            masked = jnp.astype(
+                sliced >= 0, int
+            )  # indices all timestamps where we have non-missing data for the receptacles
+
+            new_sliced = jax.vmap(lambda s, m: major_assignment * m + s * (1 - m))(
+                sliced, masked
+            )
+            # new_sliced = major_assignment * masked + sliced * (1-masked)
+
+            new_self = self.replace(_assignment=slice.set(new_sliced))
+            assert new_self._assignment.shape == self._assignment.shape
+            self = new_self
+            del new_self
+
+        return self
+
+    def regress_minors_back_into_raw_minors(self):
+        return self.replace(
+            _timestamp=jnp.astype(jnp.astype(self._timestamp, int), float)
+        )
+
     def sum_up_minors_into_major(self, verbose=True):
         if verbose:
-            print("Summing up minors into major. This only works if you call it right after a major loop has finished! Otherwise you might introduce bugs in the saved data.")
+            print(
+                "Summing up minors into major. This only works if you call it right after a major loop has finished! Otherwise you might introduce bugs in the saved data."
+            )
 
         assert not self.is_single_pickupable
         assert not self.is_single_timestamp
 
-        UNIQUE_TIMESTAMPS, UNIQUE_TIMESTAMP_INDEXES, UNIQUE_TIMESTAMP_COUNTS = jnp.unique(
-            self._timestamp, return_counts=True, return_index=True
+        self = self.regress_minors_back_into_raw_minors()
+
+        UNIQUE_TIMESTAMPS, UNIQUE_TIMESTAMP_INDEXES, UNIQUE_TIMESTAMP_COUNTS = (
+            jnp.unique(self._timestamp, return_counts=True, return_index=True)
         )
         UNIQUE_TIMESTAMPS = list(map(float, UNIQUE_TIMESTAMPS))
 
         PROTO = self.get_singletimestamp_prototype()
         MAJOR_TO_PROTO = {}
-        for i, (value, index, count) in enumerate(zip(UNIQUE_TIMESTAMPS, UNIQUE_TIMESTAMP_INDEXES, UNIQUE_TIMESTAMP_COUNTS)):
+        for i, (value, index, count) in enumerate(
+            zip(UNIQUE_TIMESTAMPS, UNIQUE_TIMESTAMP_INDEXES, UNIQUE_TIMESTAMP_COUNTS)
+        ):
             if i + 1 < len(UNIQUE_TIMESTAMP_INDEXES):
-                slice = self._assignment.at[UNIQUE_TIMESTAMP_INDEXES[i] : UNIQUE_TIMESTAMP_INDEXES[i + 1]]
+                slice = self._assignment.at[
+                    UNIQUE_TIMESTAMP_INDEXES[i] : UNIQUE_TIMESTAMP_INDEXES[i + 1]
+                ]
             else:
                 slice = self._assignment.at[UNIQUE_TIMESTAMP_INDEXES[i] :]
             slice = slice.get()
@@ -351,18 +456,26 @@ class GeneratedSemiStaticData:
 
                 for r_id, r_name in enumerate(self.receptacles_in_scene):
                     if r_name not in self.pickupable_to_receptacle[p_name]:
-                        major_assignments_for_p = major_assignments_for_p.at[r_id].set(-2)
+                        major_assignments_for_p = major_assignments_for_p.at[r_id].set(
+                            -2
+                        )
 
-                major_assignments_for_p = major_assignments_for_p[None,None,:]
+                major_assignments_for_p = major_assignments_for_p[None, None, :]
                 MAJOR_FOR_Ps.append(major_assignments_for_p)
 
             major = jnp.concatenate(MAJOR_FOR_Ps, axis=1)
-            self_at_this_time = self.replace(timestep=UNIQUE_TIMESTAMP_INDEXES[i]).self_at_current_time
+            self_at_this_time = self.replace(
+                timestep=UNIQUE_TIMESTAMP_INDEXES[i]
+            ).self_at_current_time
             MAJOR_TO_PROTO[value] = PROTO.replace(
                 _assignment=major.astype(int),
                 _timestamp=jnp.array([value]),
-                **{k: v[None] for k,v in self_at_this_time.TimeVaryingItems() if (k != "_assignment" and k != "_timestamp")},
-                is_single_timestamp=False
+                **{
+                    k: v[None]
+                    for k, v in self_at_this_time.TimeVaryingItems()
+                    if (k != "_assignment" and k != "_timestamp")
+                },
+                is_single_timestamp=False,
             )
 
         result = MAJOR_TO_PROTO[UNIQUE_TIMESTAMPS[0]]
@@ -371,7 +484,42 @@ class GeneratedSemiStaticData:
             result = result.concat(other_self)
         return result
 
-    def dump_to_parquet(self, target_dir, dump_leftover=False, batch_size: int = 100, verbose=True):
+    def process_raw_minors(self):
+        UNIQUE_TIMESTAMPS, UNIQUE_TIMESTAMP_INDEXES, UNIQUE_TIMESTAMP_COUNTS = (
+            jnp.unique(self._timestamp, return_counts=True, return_index=True)
+        )
+        if jnp.all(UNIQUE_TIMESTAMP_COUNTS == 1):
+            print(
+                "Not doing the sub_timestamp computation because there is no need: all timestamps are unique!"
+            )
+        else:
+            for i, (index, count) in enumerate(
+                zip(UNIQUE_TIMESTAMP_INDEXES, UNIQUE_TIMESTAMP_COUNTS)
+            ):
+                if count == 1:
+                    continue
+
+                if i + 1 < len(UNIQUE_TIMESTAMP_INDEXES):
+                    slice = self._timestamp.at[
+                        UNIQUE_TIMESTAMP_INDEXES[i] : UNIQUE_TIMESTAMP_INDEXES[i + 1]
+                    ]
+                else:
+                    slice = self._timestamp.at[UNIQUE_TIMESTAMP_INDEXES[i] :]
+
+                sliced = slice.get()
+
+                if sliced.shape[0] == 1:
+                    continue
+
+                SHAPE_PAD = sliced.shape[0] + 1
+                SUB_TIMESTAMP = self.dt / SHAPE_PAD
+                incremental = SUB_TIMESTAMP * jnp.arange(SHAPE_PAD)[1:]
+                self = self.replace(_timestamp=slice.set(sliced + incremental))
+        return self
+
+    def dump_to_parquet(
+        self, target_dir, dump_leftover=False, batch_size: int = 100, verbose=True
+    ) -> Self:
         """
         Dumps current self to parquet
         Args:
@@ -384,71 +532,89 @@ class GeneratedSemiStaticData:
             leftover data that didn't fit in a batch_size
         """
         if verbose:
-            print("DUMPING TO PARQUET. Note: this function only works ONCE! Call it at the end of data generation.")
+            print(
+                "DUMPING TO PARQUET. Note: this function only works ONCE! Call it at the end of data generation."
+            )
             print(
                 "To make it work for multiple dumping episodes, you need to implement a different sub_timestamp logic:"
             )
-            print("right now, it only computes the sub_timestamps by counting all consecutive identical timestamps and")
+            print(
+                "right now, it only computes the sub_timestamps by counting all consecutive identical timestamps and"
+            )
             print(
                 "cumulatively adding 1/NUM_IDENTICAL_TIMESTAMPS to simulate the time taken to navigate the room by the agent"
             )
+
+        self = self.remove_nan_sentinel()
+        self = self.process_raw_minors()
 
         num_full_batches = self._timestamp.shape[0] // batch_size
         leftover_data = self._timestamp.shape[0] - num_full_batches * batch_size
 
         # todo write some code to find the next id to write in os.path.join(target_dir, f"scan_{i}.parquet"))
-        existing = [f for f in os.listdir(target_dir) if f.startswith("scan_") and f.endswith(".parquet")]
+        existing = [
+            f
+            for f in os.listdir(target_dir)
+            if f.startswith("scan_") and f.endswith(".parquet")
+        ]
         existing_ids = [
-            int(re.search(r"scan_(\d+)\.parquet", f).group(1)) for f in existing if re.search(r"scan_(\d+)\.parquet", f)
+            int(re.search(r"scan_(\d+)\.parquet", f).group(1))
+            for f in existing
+            if re.search(r"scan_(\d+)\.parquet", f)
         ]
         CUR_SCAN_ID = max(existing_ids, default=-1) + 1  # start after the last one
 
-        UNIQUE_TIMESTAMPS, UNIQUE_TIMESTAMP_INDEXES, UNIQUE_TIMESTAMP_COUNTS = jnp.unique(
-            self._timestamp, return_counts=True, return_index=True
-        )
-        if jnp.all(UNIQUE_TIMESTAMP_COUNTS == 1):
-            print("Not doing the sub_timestamp computation because there is no need: all timestamps are unique!")
-        else:
-            TIMESTAMP_SCALE = jnp.abs(
-                self._timestamp[UNIQUE_TIMESTAMP_INDEXES[0]] - self._timestamp[UNIQUE_TIMESTAMP_INDEXES[1]]
-            )
-            for i, (index, count) in enumerate(zip(UNIQUE_TIMESTAMP_INDEXES, UNIQUE_TIMESTAMP_COUNTS)):
-                # FIXME: this count should be increased by dt, not 1.
-                count = count + 1
-                SUB_TIMESTAMP = TIMESTAMP_SCALE / count
-                incremental = SUB_TIMESTAMP * jnp.arange(count)[1:]
-
-                if i + 1 < len(UNIQUE_TIMESTAMP_INDEXES):
-                    slice = self._timestamp.at[UNIQUE_TIMESTAMP_INDEXES[i] : UNIQUE_TIMESTAMP_INDEXES[i + 1]]
-                else:
-                    slice = self._timestamp.at[UNIQUE_TIMESTAMP_INDEXES[i] :]
-
-                self = self.replace(_timestamp=slice.set(slice.get() + incremental))
-
         CUR_IDX = 0
+        WROTE_DATA = False
         for batch_id in range(num_full_batches):
-            kwargs = {k.lstrip("_"): np.array(v)[CUR_IDX : CUR_IDX + batch_size] for k, v in self.TimeVaryingItems()}
+            kwargs = {
+                k.lstrip("_"): np.array(v)[CUR_IDX : CUR_IDX + batch_size]
+                for k, v in self.TimeVaryingItems()
+            }
             CUR_IDX += batch_size
             df = pl.DataFrame(kwargs)
             df.write_parquet(os.path.join(target_dir, f"scan_{CUR_SCAN_ID}.parquet"))
             CUR_SCAN_ID += 1
+            WROTE_DATA = True
 
         if leftover_data >= 0 and dump_leftover:
-            leftover_data_kwargs = {k.lstrip("_"): np.array(v)[CUR_IDX:] for k, v in self.TimeVaryingItems()}
+            leftover_data_kwargs = {
+                k.lstrip("_"): np.array(v)[CUR_IDX:] for k, v in self.TimeVaryingItems()
+            }
             df = pl.DataFrame(leftover_data_kwargs)
             df.write_parquet(os.path.join(target_dir, f"scan_{CUR_SCAN_ID}.parquet"))
+            WROTE_DATA = True
 
-        with open(os.path.join(target_dir, "pickupable_names.json"), "w") as f:
-            json.dump(self.pickupable_names, f, indent=4)
-        with open(os.path.join(target_dir, "receptacle_names.json"), "w") as f:
-            json.dump(self.receptacle_names, f, indent=4)
-        with open(os.path.join(target_dir, "pickupable_to_receptacle.json"), "w") as f:
-            json.dump(self.pickupable_to_receptacle, f, indent=4)
-        with open(os.path.join(target_dir, "receptacles_oobb.json"), "w") as f:
-            json.dump(self.receptacles_oobb, f, indent=4)
-        if self.intrinsics is not None:
-            with open(os.path.join(target_dir, "camera_intrinsics.json"), "w") as f:
-                json.dump(self.intrinsics, f, indent=4)
+        if WROTE_DATA:
+            with open(os.path.join(target_dir, "pickupable_names.json"), "w") as f:
+                json.dump(self.pickupable_names, f, indent=4)
+            with open(os.path.join(target_dir, "receptacle_names.json"), "w") as f:
+                json.dump(self.receptacle_names, f, indent=4)
+            with open(
+                os.path.join(target_dir, "pickupable_to_receptacle.json"), "w"
+            ) as f:
+                json.dump(self.pickupable_to_receptacle, f, indent=4)
+            with open(os.path.join(target_dir, "receptacles_oobb.json"), "w") as f:
+                json.dump(self.receptacles_oobb, f, indent=4)
+            with open(os.path.join(target_dir, "config.yaml"), "w") as f:
+                yaml.dump({"dt": float(self.dt)}, f)
+            if self.intrinsics is not None:
+                with open(os.path.join(target_dir, "camera_intrinsics.json"), "w") as f:
+                    json.dump(self.intrinsics, f, indent=4)
+
+        if not dump_leftover:
+            if leftover_data > 0:
+                return self.replace(
+                    **{k: v[CUR_IDX:] for k, v in self.TimeVaryingItems()}
+                )
+            else:
+                return self.replace(
+                    **{
+                        k: jnp.zeros_like(v[CUR_IDX - 1 :][0][None]) * jnp.nan
+                        for k, v in self.TimeVaryingItems()
+                    }
+                )
+        return None
 
 
 def load_sssd(path):
@@ -482,10 +648,20 @@ def load_sssd(path):
         with open(intrinsics_path, "r") as f:
             intrinsics = json.load(f)
 
+    try:
+        with open(os.path.join(path, "config.yaml"), "r") as f:
+            config = yaml.safe_load(f)
+            dt = config["dt"]
+    except:
+        raise Exception(
+            "No config.yaml found in the SSSD path, this should ALWAYS exist!"
+        )
+
     return GeneratedSemiStaticData(
         split=split,
         house_id=house_id,
         jax_key=jax.random.PRNGKey(jax_key),
+        dt=dt,
         parquet_paths=file_names,
         **ITEMS,
         pickupable_names=pickupables,
