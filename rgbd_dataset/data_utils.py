@@ -4,6 +4,7 @@ import os
 import re
 from typing import List, Optional, Tuple, Dict
 from typing_extensions import Self
+import yaml
 
 import jax
 import jax.random
@@ -647,7 +648,7 @@ def load_sssd(path):
     if os.path.exists(intrinsics_path):
         with open(intrinsics_path, "r") as f:
             intrinsics = json.load(f)
-
+    
     try:
         with open(os.path.join(path, "config.yaml"), "r") as f:
             config = yaml.safe_load(f)
