@@ -83,11 +83,11 @@ class SemiStaticSim(BaseRGBDDataset):
                 ):
                     continue
                 r_assignment = p_assignments[:, r_id][mask]
-                state = jnp.median(r_assignment).item()
-                pickupable_assignment[pickupable_names[p_id]] = bool(state)
+                state = bool(jnp.median(r_assignment).item())
+                pickupable_assignment[pickupable_names[p_id]] = state
                 # If the pickupable is found, just return that it is present
                 if state:
-                    continue
+                    break
 
         return pickupable_assignment
 
