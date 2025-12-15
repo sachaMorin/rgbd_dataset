@@ -1,5 +1,4 @@
 import glob
-import polars as pl
 import numpy as np
 from typing import List
 from natsort import natsorted
@@ -7,14 +6,19 @@ import json
 from copy import deepcopy
 from scipy.spatial.transform import Rotation as R
 import cv2
-import re
+
+import os
+
+# Disable GPU memory pre-allocation to avoid OOM
+os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
+# Import JAX and other libraries after setting the environment variable
+import jax
 
 from ..BaseRGBDDataset import BaseRGBDDataset
 from ..rgbd_to_pcd import rgbd_to_pcd
 from ..data_utils import (
     load_sssd,
     GeneratedSemiStaticData,
-    split_camel_preserve_acronyms,
 )
 
 import logging
@@ -50,6 +54,7 @@ class SemiStaticSim(BaseRGBDDataset):
         self.get_pickupable_names()
         self.get_receptacles_names()
         self.get_receptacles_bbox()
+        self.get_pickupables_bbox()
         self.get_pickupable_to_receptacles()
 
     def get_pickupable_names(self) -> List[str]:
@@ -57,6 +62,17 @@ class SemiStaticSim(BaseRGBDDataset):
 
     def get_receptacles_names(self) -> List[str]:
         return self.sssd_data.receptacles_in_scene
+
+    def get_pickupables_bbox(self) -> dict:
+        oobb = self.sssd_data._oobb_cornerPoints[0]
+        new_pickupables_bbox = {}
+        for i, corners in enumerate(oobb):
+            corners_hom = np.pad(corners, ((0, 0), (0, 1)), constant_values=1)
+            corners_transformed = (LHS_TO_RHS @ corners_hom.T).T
+
+            new_pickupables_bbox[self.get_pickupable_names()[i]] = {'cornerPoints': corners_transformed[:, :3]}
+
+        return new_pickupables_bbox
 
     def get_receptacles_bbox(self) -> dict:
         new_receptacles_bbox = {}
