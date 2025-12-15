@@ -10,7 +10,7 @@ import cv2
 import os
 
 # Disable GPU memory pre-allocation to avoid OOM
-os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'false'
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 # Import JAX and other libraries after setting the environment variable
 import jax
 import jax.numpy as jnp
@@ -59,7 +59,7 @@ class SemiStaticSim(BaseRGBDDataset):
 
     def get_receptacles_names(self) -> List[str]:
         return self.sssd_data.receptacles_in_scene
-    
+
     def get_assignment(self) -> dict:
         assignment = np.concatenate(
             [data._assignment for data in self.sssd_data.get_generator_of_selves()]
@@ -73,19 +73,23 @@ class SemiStaticSim(BaseRGBDDataset):
             p_assignments = assignment[:, p_id, :]
             for r_id in range(n_receptacles):
                 # Get positions where the pickupable is either present or absent in the receptacle
-                mask = jnp.logical_or(p_assignments[:, r_id] == 0, p_assignments[:, r_id] == 1)
+                mask = jnp.logical_or(
+                    p_assignments[:, r_id] == 0, p_assignments[:, r_id] == 1
+                )
                 # Do not populate data if there are no valid timestamps
-                if jnp.sum(mask) == 0 or receptacle_names[r_id] == "OOB_FAKE_RECEPTACLE":
+                if (
+                    jnp.sum(mask) == 0
+                    or receptacle_names[r_id] == "OOB_FAKE_RECEPTACLE"
+                ):
                     continue
                 r_assignment = p_assignments[:, r_id][mask]
                 state = jnp.median(r_assignment).item()
-                pickupable_assignment[pickupable_names[p_id]] = state
+                pickupable_assignment[pickupable_names[p_id]] = bool(state)
                 # If the pickupable is found, just return that it is present
-                if state == 1.:
+                if state:
                     continue
 
         return pickupable_assignment
-        
 
     def get_pickupables_bbox(self) -> dict:
         oobb = self.sssd_data._oobb_cornerPoints[0]
@@ -94,7 +98,9 @@ class SemiStaticSim(BaseRGBDDataset):
             corners_hom = np.pad(corners, ((0, 0), (0, 1)), constant_values=1)
             corners_transformed = (LHS_TO_RHS @ corners_hom.T).T
 
-            new_pickupables_bbox[self.get_pickupable_names()[i]] = {'cornerPoints': corners_transformed[:, :3]}
+            new_pickupables_bbox[self.get_pickupable_names()[i]] = {
+                "cornerPoints": corners_transformed[:, :3]
+            }
 
         return new_pickupables_bbox
 
@@ -170,7 +176,11 @@ class SemiStaticSim(BaseRGBDDataset):
             # Full Unity Pose Matrix
             pose_unity = np.eye(4)
             pose_unity[0:3, 0:3] = rot_unity
-            pose_unity[0:3, 3] = [position["x"], position["y"] + self.cam_offset, position["z"]]
+            pose_unity[0:3, 3] = [
+                position["x"],
+                position["y"] + self.cam_offset,
+                position["z"],
+            ]
 
             # 2. Apply Change of Basis: P_new = T * P_old * T_inv
             # Note: we do not invert T because T is its own inverse
