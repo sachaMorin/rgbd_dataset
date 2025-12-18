@@ -2,8 +2,4 @@ defaults:
   - dataset: Replica
   - _self_
 
-draw_origin: false
-draw_cam: false
-draw_traj: false
-draw_boxes: false
 voxel_size: 0.025
