@@ -26,13 +26,23 @@ class RGBD(BaseRGBDDataset):
         super().__init__(**kwargs)
 
     def get_rgb_paths(self) -> List[str]:
-        path_str = str(self.base_path / self.scene / self.rgb_dir / "*.jpg")
-        rgb_paths = natsorted(glob.glob(path_str))
-        return rgb_paths
+
+        def get_paths(ext=".jpg"):
+            path_str = str(self.base_path / self.scene / self.rgb_dir / f"*{ext}")
+            rgb_paths = natsorted(glob.glob(path_str))
+            return rgb_paths
+        
+        paths = get_paths(".jpg")
+        if len(paths) == 0:
+            paths = get_paths(".png")
+            assert len(paths) >= 1
+
+        return paths
 
     def get_depth_paths(self) -> List[str]:
         path_str = str(self.base_path / self.scene / self.depth_dir / "*.png")
         depth_paths = natsorted(glob.glob(path_str))
+        assert len(depth_paths) > 0
         return depth_paths
 
     def get_se3_poses(self) -> List[np.array]:
