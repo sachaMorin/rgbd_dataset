@@ -37,7 +37,6 @@ def main(cfg: DictConfig):
 
     viser_server.collate(pcd_scene)
     viser_server.display_object_rgb()
-    # o3d.visualization.draw_geometries(geometries)
     while True:
         pass
 

@@ -27,6 +27,7 @@ import logging
 log = logging.getLogger(__name__)
 
 LHS_TO_RHS = np.array([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+RHS_TO_ROS = np.array([[0, 0, 1, 0], [-1, 0, 0, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
 
 
 class SemiStaticSim(BaseRGBDDataset):
@@ -96,7 +97,7 @@ class SemiStaticSim(BaseRGBDDataset):
         new_pickupables_bbox = {}
         for i, corners in enumerate(oobb):
             corners_hom = np.pad(corners, ((0, 0), (0, 1)), constant_values=1)
-            corners_transformed = (LHS_TO_RHS @ corners_hom.T).T
+            corners_transformed = (RHS_TO_ROS @ LHS_TO_RHS @ corners_hom.T).T
 
             new_pickupables_bbox[self.get_pickupable_names()[i]] = {
                 "cornerPoints": corners_transformed[:, :3]
@@ -112,7 +113,7 @@ class SemiStaticSim(BaseRGBDDataset):
             # Process corners
             corners = np.array(bbox["cornerPoints"])
             corners_hom = np.pad(corners, ((0, 0), (0, 1)), constant_values=1)
-            corners_transformed = (LHS_TO_RHS @ corners_hom.T).T
+            corners_transformed = (RHS_TO_ROS @ LHS_TO_RHS @ corners_hom.T).T
             bbox["cornerPoints"] = corners_transformed[:, :3]
 
             new_receptacles_bbox[object_name] = bbox
@@ -184,7 +185,7 @@ class SemiStaticSim(BaseRGBDDataset):
 
             # 2. Apply Change of Basis: P_new = T * P_old * T_inv
             # Note: we do not invert T because T is its own inverse
-            pose_rhs = LHS_TO_RHS @ pose_unity @ LHS_TO_RHS
+            pose_rhs = RHS_TO_ROS @ (LHS_TO_RHS @ pose_unity @ LHS_TO_RHS.T)
 
             poses.append(pose_rhs)
 
