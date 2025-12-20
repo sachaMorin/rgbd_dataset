@@ -1,0 +1,12 @@
+defaults:
+  - dataset: StrayScannerRGBD
+  - _self_
+
+draw_origin: false
+draw_cam: false
+draw_traj: false
+voxel_size: 0.025
+
+dataset:
+  scene: 1ffc52e41b
+  sequence_stride: 1
