@@ -51,7 +51,9 @@ class SemiStaticSim(BaseRGBDDataset):
         super().__init__(**kwargs)
 
         self.sssd_data: GeneratedSemiStaticData = load_sssd(self.base_path / self.scene)
-        self.semantics_paths = self.get_semantics_paths()
+        self.semantics_paths = self.get_semantics_paths()[
+            self.sequence_start : self.sequence_end : self.sequence_stride
+        ]
         self.timestamps = self.get_timestamps()
         self.assignment = self.get_assignment()
 
@@ -201,6 +203,7 @@ class SemiStaticSim(BaseRGBDDataset):
     def __getitem__(self, idx):
         rgb = self.read_rgb(self.rgb_paths[idx])
         depth = self.read_depth(self.depth_paths[idx])
+        semantics = self.read_semantics(self.semantics_paths[idx])
         pose = self.se3_poses[idx]
         intrinsics = self.rescale_intrinsics(self.intrinsics[idx])
         timestamp = self.timestamps[idx]
@@ -220,6 +223,15 @@ class SemiStaticSim(BaseRGBDDataset):
                 (self.resized_width, self.resized_height),
                 interpolation=cv2.INTER_NEAREST,
             )
+        if (
+            semantics.shape[0] != self.resized_height
+            or semantics.shape[1] != self.resized_width
+        ):
+            semantics = cv2.resize(
+                semantics,
+                (self.resized_width, self.resized_height),
+                interpolation=cv2.INTER_NEAREST,
+            )
 
         if self.relative_pose:
             pose = np.dot(self.first_pose_inv, pose)
@@ -227,6 +239,7 @@ class SemiStaticSim(BaseRGBDDataset):
         result = dict(
             rgb=rgb,
             depth=depth,
+            semantics=semantics,
             camera_pose=pose,
             intrinsics=intrinsics,
         )

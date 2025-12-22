@@ -129,6 +129,14 @@ class BaseRGBDDataset(Dataset):
     def read_depth(self, path: Union[str, Path]) -> np.ndarray:
         return cv2.imread(str(path), cv2.IMREAD_ANYDEPTH)
 
+    def read_semantics(self, path: Union[str, Path]) -> np.ndarray:
+        exists = Path(path).is_file()
+        if not exists:
+            return None
+        img = cv2.imread(str(path))
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        return img
+
     def __getitem__(self, idx):
         rgb = self.read_rgb(self.rgb_paths[idx])
         depth = self.read_depth(self.depth_paths[idx])
