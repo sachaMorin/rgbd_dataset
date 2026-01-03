@@ -1,6 +1,6 @@
 import glob
 import numpy as np
-from typing import List, Dict
+from typing import List
 from natsort import natsorted
 import json
 from copy import deepcopy
@@ -39,6 +39,7 @@ class SemiStaticSim(BaseRGBDDataset):
         semantics_dir: str = "semantics",
         pose_dir: str = "poses",
         cam_offset: float = 0.675,
+        keyframes: bool = False,
         **kwargs,
     ):
         self.img_dir = img_dir
@@ -47,15 +48,38 @@ class SemiStaticSim(BaseRGBDDataset):
         self.cam_offset = cam_offset
         self.depth_dir = depth_dir
         self.semantics_dir = semantics_dir
+        self.keyframes = keyframes
+        # If using keyframes, set stride to 1
+        kwargs["sequence_stride"] = 1 if keyframes else kwargs["sequence_stride"]
 
         super().__init__(**kwargs)
 
         self.sssd_data: GeneratedSemiStaticData = load_sssd(self.base_path / self.scene)
-        self.semantics_paths = self.get_semantics_paths()[
-            self.sequence_start : self.sequence_end : self.sequence_stride
-        ]
-        self.timestamps = self.get_timestamps()
+        if self.keyframes:
+            self.keyframe_indices = self.get_keyframes()
+            all_semantics = self.get_semantics_paths()
+            full_timestamps = self.get_timestamps() 
+            # list comprehension to pick exactly the indices we want
+            self.rgb_paths = [self.rgb_paths[i] for i in self.keyframe_indices]
+            self.depth_paths = [self.depth_paths[i] for i in self.keyframe_indices]
+            self.se3_poses = [self.se3_poses[i] for i in self.keyframe_indices]
+            self.intrinsics = [self.intrinsics[i] for i in self.keyframe_indices]
+            self.semantics_paths = [all_semantics[i] for i in self.keyframe_indices]
+            self.timestamps = full_timestamps[self.keyframe_indices]
+            self.num_total_images = len(self.rgb_paths)
+        else:
+            self.semantics_paths = self.get_semantics_paths()[
+                self.sequence_start : self.sequence_end : self.sequence_stride
+            ]
+            self.timestamps = self.get_timestamps()
         self.assignment = self.get_assignment()
+
+    def get_keyframes(self) -> bool:
+        path_str = str(self.base_path / self.scene /  "keyframes.txt")
+        with open(path_str, "r") as f:
+            keyframe_lines = f.readlines()
+        keyframe_indices = [int(line.strip()) for line in keyframe_lines]
+        return keyframe_indices
 
     def get_pickupable_names(self) -> List[str]:
         return self.sssd_data.pickupables_in_scene

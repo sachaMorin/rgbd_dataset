@@ -13,6 +13,7 @@ def rgbd_to_pcd(
     height: int,
     depth_trunc: float = 8.0,
     depth_scale: float = 1.0,
+    **kwargs,
 ) -> o3d.geometry.PointCloud:
     color_o3d = o3d.geometry.Image(rgb)
     depth_o3d = o3d.geometry.Image(depth)
