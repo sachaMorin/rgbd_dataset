@@ -17,10 +17,8 @@ import jax.numpy as jnp
 
 from ..BaseRGBDDataset import BaseRGBDDataset
 from ..rgbd_to_pcd import rgbd_to_pcd
-from ..data_utils import (
-    load_sssd,
-    GeneratedSemiStaticData,
-)
+
+from semistaticsim.datawrangling.sssd import load_sssd, GeneratedSemiStaticData
 
 import logging
 
