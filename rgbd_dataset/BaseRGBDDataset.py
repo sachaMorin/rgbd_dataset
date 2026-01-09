@@ -5,10 +5,12 @@ import json
 import cv2
 import numpy as np
 from torch.utils.data import Dataset
+import logging
 
 from .utils import invert_se3
 from .rgbd_to_pcd import rgbd_to_pcd
 
+log = logging.getLogger(__name__)
 
 class BaseRGBDDataset(Dataset):
     def __init__(
@@ -49,6 +51,9 @@ class BaseRGBDDataset(Dataset):
         self.depth_scale = depth_scale
         self.point_cloud = point_cloud
         self.depth_trunc = depth_trunc
+
+        log.info(f"Initializing dataset at path: {self.base_path / self.scene}")
+
 
         # Optional parameters for global intrinsics
         # Override get_intrinsics_matrices for per frame intrinsics
