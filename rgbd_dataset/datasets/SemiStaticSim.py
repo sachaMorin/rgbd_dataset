@@ -86,35 +86,56 @@ class SemiStaticSim(BaseRGBDDataset):
         return self.sssd_data.receptacles_in_scene
 
     def get_assignment(self) -> dict:
+        # Load GT data only here
+        sssd_data: GeneratedSemiStaticData = load_sssd(self.base_path.parent / "groundtruth")
+        timestamp = int(self.scene.split("run_")[-1])
+        # Get assignment at specific timestamp
         assignment = np.concatenate(
-            [data._assignment for data in self.sssd_data.get_generator_of_selves()]
-        )
-        n_pickupables = assignment.shape[1]
-        n_receptacles = assignment.shape[2]
+            [data._assignment for data in sssd_data.get_generator_of_selves()]
+        )[timestamp]
+        one_hot_assignment = np.argmax(assignment, axis=-1)
+
         receptacle_names = self.get_receptacles_names()
         pickupable_names = self.get_pickupable_names()
         pickupable_assignment = dict()
-        for p_id in range(n_pickupables):
-            p_assignments = assignment[:, p_id, :]
-            for r_id in range(n_receptacles):
-                # Get positions where the pickupable is either present or absent in the receptacle
-                mask = jnp.logical_or(
-                    p_assignments[:, r_id] == 0, p_assignments[:, r_id] == 1
-                )
-                # Do not populate data if there are no valid timestamps
-                if (
-                    jnp.sum(mask) == 0
-                    or receptacle_names[r_id] == "OOB_FAKE_RECEPTACLE"
-                ):
-                    continue
-                r_assignment = p_assignments[:, r_id][mask]
-                state = bool(jnp.median(r_assignment).item())
-                pickupable_assignment[pickupable_names[p_id]] = state
-                # If the pickupable is found, just return that it is present
-                if state:
-                    break
+        for p_id, p_name in enumerate(pickupable_names):
+            r_id = one_hot_assignment[p_id]
+            pickupable_assignment[p_name] = True
+            if receptacle_names[r_id] == "OOB_FAKE_RECEPTACLE":
+                pickupable_assignment[p_name] = False
 
         return pickupable_assignment
+
+    # def get_assignment(self) -> dict:
+    #     assignment = np.concatenate(
+    #         [data._assignment for data in self.sssd_data.get_generator_of_selves()]
+    #     )
+    #     n_pickupables = assignment.shape[1]
+    #     n_receptacles = assignment.shape[2]
+    #     receptacle_names = self.get_receptacles_names()
+    #     pickupable_names = self.get_pickupable_names()
+    #     pickupable_assignment = dict()
+    #     for p_id in range(n_pickupables):
+    #         p_assignments = assignment[:, p_id, :]
+    #         for r_id in range(n_receptacles):
+    #             # Get positions where the pickupable is either present or absent in the receptacle
+    #             mask = jnp.logical_or(
+    #                 p_assignments[:, r_id] == 0, p_assignments[:, r_id] == 1
+    #             )
+    #             # Do not populate data if there are no valid timestamps
+    #             if (
+    #                 jnp.sum(mask) == 0
+    #                 or receptacle_names[r_id] == "OOB_FAKE_RECEPTACLE"
+    #             ):
+    #                 continue
+    #             r_assignment = p_assignments[:, r_id][mask]
+    #             state = bool(jnp.median(r_assignment).item())
+    #             pickupable_assignment[pickupable_names[p_id]] = state
+    #             # If the pickupable is found, just return that it is present
+    #             if state:
+    #                 break
+
+    #     return pickupable_assignment
 
     def get_pickupables_bbox(self) -> dict:
         oobb = self.sssd_data._oobb_cornerPoints[0]
