@@ -32,7 +32,8 @@ class Perpetua(BaseRGBDDataset):
         intrinsics_dir: str = "intrinsics",
         mapping_dir: str = "mapping.json",
         cloud_dir: str = "cloud.json",
-        transform_dir: str = "transform.yaml",    
+        transform_dir: str = "transform.yaml",
+        schedule_dir: str = "schedule.json",
         **kwargs,
     ):
         self.rgb_dir = rgb_dir
@@ -42,13 +43,15 @@ class Perpetua(BaseRGBDDataset):
         self.mapping_dir = mapping_dir
         self.cloud_dir = cloud_dir
         self.transform_dir = transform_dir
+        self.schedule_dir = schedule_dir
 
         super().__init__(**kwargs)
 
         self.virtual_start_time, self.start_timestamp = self.get_virtual_start_time()
         self.timestamps = self.get_timestamps()
         self._mapping = self._load_json(self.scene, self.mapping_dir)
-        self._cloud = self._load_json("pcd", self.cloud_dir)
+        self._cloud = self._load_json(self.scene, self.cloud_dir)
+        self._schedule = self._load_json(self.scene, self.schedule_dir)
         self._T_global = self._load_transform_yaml(self.transform_dir) if self.transform_dir else None
 
     def _load_json(self, dir_name: str, path: str) -> dict:
@@ -219,6 +222,12 @@ class Perpetua(BaseRGBDDataset):
             out[obj["name"]] = {"cornerPoints": corners}
 
         return out
+    
+    def get_pickupables_bbox(self) -> dict:
+        pass  # TODO
+
+    def get_assignment(self) -> dict:
+        pass  # TODO
 
     def __getitem__(self, idx):
         rgb = self.read_rgb(self.rgb_paths[idx])
