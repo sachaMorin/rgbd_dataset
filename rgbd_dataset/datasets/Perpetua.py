@@ -224,10 +224,10 @@ class Perpetua(BaseRGBDDataset):
         return out
     
     def get_pickupables_bbox(self) -> dict:
-        pass  # TODO
+        return None  # TODO
 
     def get_assignment(self) -> dict:
-        pass  # TODO
+        return None  # TODO
 
     def __getitem__(self, idx):
         rgb = self.read_rgb(self.rgb_paths[idx])
