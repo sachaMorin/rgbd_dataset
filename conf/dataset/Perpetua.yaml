@@ -17,3 +17,7 @@ rgb_dir: rgb
 depth_dir: depth
 pose_dir: poses
 intrinsics_dir: calib
+mapping_dir: mapping.json
+cloud_dir: cloud.json
+transform_dir: transform.yaml
+schedule_dir: schedule.json

@@ -30,17 +30,34 @@ class Perpetua(BaseRGBDDataset):
         depth_dir: str = "depth",
         pose_dir: str = "camera_pose",
         intrinsics_dir: str = "intrinsics",
+        mapping_dir: str = "mapping.json",
+        cloud_dir: str = "cloud.json",
+        transform_dir: str = "transform.yaml",
+        schedule_dir: str = "schedule.json",
         **kwargs,
     ):
         self.rgb_dir = rgb_dir
         self.pose_dir = pose_dir
         self.depth_dir = depth_dir
         self.intrinsics_dir = intrinsics_dir
+        self.mapping_dir = mapping_dir
+        self.cloud_dir = cloud_dir
+        self.transform_dir = transform_dir
+        self.schedule_dir = schedule_dir
 
         super().__init__(**kwargs)
 
         self.virtual_start_time, self.start_timestamp = self.get_virtual_start_time()
         self.timestamps = self.get_timestamps()
+        self._mapping = self._load_json(self.scene, self.mapping_dir)
+        self._cloud = self._load_json(self.scene, self.cloud_dir)
+        self._schedule = self._load_json(self.scene, self.schedule_dir)
+        self._T_global = self._load_transform_yaml(self.transform_dir) if self.transform_dir else None
+
+    def _load_json(self, dir_name: str, path: str) -> dict:
+        path = self.base_path / dir_name / path
+        with open(path, "r") as f:
+            return json.load(f)
 
     def get_virtual_start_time(self) -> str:
         path = self.base_path / self.scene / "date.txt"
@@ -126,6 +143,103 @@ class Perpetua(BaseRGBDDataset):
             cm_mx = np.array(cm, dtype=float).reshape((3, 3))
             intrinsics.append(cm_mx)
         return intrinsics
+
+    def _load_transform_yaml(self, yaml_path: str):
+        path = self.base_path / self.scene / yaml_path
+        if not path.exists():
+            return None
+
+        with open(path, "r") as f:
+            d = yaml.safe_load(f)
+
+        qx, qy, qz, qw = d["rotation"]
+        tx, ty, tz = d["translation"]
+
+        T = np.eye(4, dtype=np.float64)
+        T[:3, :3] = R.from_quat((qx, qy, qz, qw), scalar_first=False).as_matrix()
+        T[:3, 3] = [tx, ty, tz]
+        return T
+
+    def get_pickupable_names(self) -> List[str]:
+        return list(self._mapping["P_names"])
+
+    def get_receptacles_names(self) -> List[str]:
+        return list(self._mapping["R_names"])
+
+    def get_pickupable_to_receptacles(self) -> dict[str, List[str]]:
+        return {
+            k: list(v)
+            for k, v in self._mapping["P_to_R_names"].items()
+        }
+
+    def _permute_axes(self, corners: np.ndarray, mode: str) -> np.ndarray:
+        if mode == "xyz":
+            return corners
+        if mode == "yxz":
+            return corners[:, [1, 0, 2]]
+        if mode == "xzy":
+            return corners[:, [0, 2, 1]]
+        if mode == "zyx":
+            return corners[:, [2, 1, 0]]
+        if mode == "zxy":
+            return corners[:, [2, 0, 1]]
+        if mode == "yzx":
+            return corners[:, [1, 2, 0]]
+        raise ValueError(f"Unknown axis mode: {mode}")
+
+    def _flip_axis(self, corners: np.ndarray, flip: str) -> np.ndarray:
+        if flip == "none":
+            return corners
+        out = corners.copy()
+        if flip == "x":
+            out[:, 0] *= -1
+        elif flip == "y":
+            out[:, 1] *= -1
+        elif flip == "z":
+            out[:, 2] *= -1
+        else:
+            raise ValueError(f"Unknown flip: {flip}")
+        return out
+
+    def get_receptacles_bbox(self) -> dict[str, dict]:
+        T = self._T_global
+        AXIS_MODE = "xyz"
+        FLIP = "none"
+
+        out = {}
+        for obj in self._cloud["objects"]:
+            corners = np.asarray(obj["vertices"], dtype=np.float64)
+            if corners.shape != (8, 3):
+                raise ValueError(f"{obj.get('name')} bbox shape {corners.shape}, expected (8,3)")
+
+            corners = self._permute_axes(corners, AXIS_MODE)
+            corners = self._flip_axis(corners, FLIP)
+
+            if T is not None:
+                corners_h = np.hstack([corners, np.ones((8, 1), dtype=np.float64)])
+                corners = (T @ corners_h.T).T[:, :3]
+
+            out[obj["name"]] = {"cornerPoints": corners}
+
+        return out
+    
+    def get_pickupables_bbox(self) -> dict:
+        return None
+    
+    def get_obj_to_rec_assignment(self) -> dict:
+        out = {
+            obj: info["rec_name"]
+            for obj, info in self._schedule["objects"].items()
+        }
+        return out
+
+    def get_assignment(self) -> dict:
+        objs = self._schedule["objects"]
+        out = {
+            p: bool(objs.get(p, {}).get("status", False))
+            for p in self.get_pickupable_names()
+        }
+        return out
 
     def __getitem__(self, idx):
         rgb = self.read_rgb(self.rgb_paths[idx])
