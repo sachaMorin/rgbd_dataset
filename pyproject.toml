@@ -4,9 +4,8 @@ version = "0.0.0"
 dependencies = [
     "torch",
     "torchvision",
-    "jax==0.8.1 ; sys_platform == 'darwin'",
-    "jax[cuda12]==0.8.1 ; sys_platform == 'linux'",
-    "flax==0.12.0",
+    "jax==0.4.35",
+    "flax==0.10.0",
     "polars>=1.34.0",
     "open3d",
     "natsort",
