@@ -7,6 +7,7 @@ import yaml
 from scipy.spatial.transform import Rotation as R
 import cv2
 import re
+import math
 
 from ..BaseRGBDDataset import BaseRGBDDataset
 from ..rgbd_to_pcd import rgbd_to_pcd
@@ -171,7 +172,7 @@ class Perpetua(BaseRGBDDataset):
             k: list(v)
             for k, v in self._mapping["P_to_R_names"].items()
         }
-
+        
     def _permute_axes(self, corners: np.ndarray, mode: str) -> np.ndarray:
         if mode == "xyz":
             return corners
@@ -239,6 +240,42 @@ class Perpetua(BaseRGBDDataset):
             p: bool(objs.get(p, {}).get("status", False))
             for p in self.get_pickupable_names()
         }
+        return out
+    
+    @property
+    def default_timegrid_interval(self):
+        interval = self._schedule["interval"]
+        run_duration = float(interval[1]) - float(interval[0])
+        return self.virtual_start_time, self.virtual_start_time + run_duration
+    
+    def build_pickupables_to_receptacles_timegrid(
+        self,
+        start: float,
+        end: float,
+        dt: float = 0.25,
+        ) -> dict:
+        n = int(math.ceil((end - start) / dt))
+        timestamps = [start + i * dt for i in range(n)]
+
+        P_names = self.get_pickupable_names()
+        P_to_R = self.get_pickupable_to_receptacles()
+        sched_objs = dict(self._schedule["objects"])
+
+        out = {}
+        for p in P_names:
+            candidates = list(P_to_R.get(p, []))
+            rec_masks = {r: [0] * n for r in candidates}
+            
+            info = sched_objs.get(p, {})
+            present = bool(info.get("status", False))
+            assigned_rec = info.get("rec_name", None)
+
+            if present:
+                if assigned_rec in rec_masks:
+                    rec_masks[assigned_rec] = [1] * n
+
+            # out[p] = {"timestamps": [start_hour, start_hour + dt, ...], "receptacles": {r: [0/1, ...], ...}}
+            out[p] = {"timestamps": timestamps, "receptacles": rec_masks}
         return out
 
     def __getitem__(self, idx):
