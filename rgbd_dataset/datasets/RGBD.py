@@ -1,6 +1,6 @@
 import glob
 import numpy as np
-from typing import List
+from typing import List, Tuple
 from natsort import natsorted
 import json
 from scipy.spatial.transform import Rotation as R
@@ -22,7 +22,7 @@ class RGBD(BaseRGBDDataset):
         self.pose_dir = pose_dir
         self.depth_dir = depth_dir
         self.intrinsics_dir = intrinsics_dir
-        self.pose_dict = pose_dict # Pose is in dict format from ROS transform. Otherwise assumees a 4x4 matrix
+        self.pose_dict = pose_dict  # Pose is in dict format from ROS transform. Otherwise assumees a 4x4 matrix
         super().__init__(**kwargs)
 
     def get_rgb_paths(self) -> List[str]:
@@ -46,7 +46,9 @@ class RGBD(BaseRGBDDataset):
                 t = pose["translation"]
                 pose_mx[:3, 3] = [t["x"], t["y"], t["z"]]
                 rot = pose["rotation"]
-                pose_mx[:3, :3] = R.from_quat((rot["x"], rot["y"], rot["z"], rot["w"]), scalar_first=False).as_matrix()
+                pose_mx[:3, :3] = R.from_quat(
+                    (rot["x"], rot["y"], rot["z"], rot["w"]), scalar_first=False
+                ).as_matrix()
             else:
                 pose_mx = np.array(pose).reshape((4, 4))
 
@@ -63,3 +65,39 @@ class RGBD(BaseRGBDDataset):
             mx = json.loads(open(path).read())
             intrinsics.append(np.array(mx).reshape((3, 3)))
         return intrinsics
+
+    def get_descriptions(self, use_test: bool = False) -> List[Tuple[str, str]]:
+        if use_test:
+            return self.get_descriptions_test()
+
+        path_str = str(self.base_path / self.scene / "descriptions.json")
+
+        # if the descriptions file doesn't exist, return an empty list
+        if not (self.base_path / self.scene / "descriptions.json").exists():
+            print(
+                f"Warning: descriptions.json not found for scene {self.scene}. Returning empty list."
+            )
+            return []
+
+        with open(path_str, "r") as f:
+            descriptions = json.load(f)
+
+        description_ids = [desc["desc_id"] for desc in descriptions]
+        description_texts = [desc["description"] for desc in descriptions]
+        return list(zip(description_ids, description_texts))
+
+    def get_descriptions_test(self) -> List[Tuple[str, str]]:
+        path_str = str(self.base_path / self.scene / "descriptions.json")
+
+        if not (self.base_path / self.scene / "descriptions.json").exists():
+            print(
+                f"Warning: descriptions.json not found for scene {self.scene}. Returning empty list."
+            )
+            return []
+
+        with open(path_str, "r") as f:
+            descriptions = json.load(f)
+
+        description_ids = [desc["desc_id"] for desc in descriptions]
+        description_texts = [desc["description"] for desc in descriptions]
+        return list(zip(description_ids, description_texts))
