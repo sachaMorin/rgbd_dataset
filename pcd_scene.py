@@ -1,10 +1,10 @@
+import time
+
 import hydra
+import numpy as np
+import open3d as o3d
 from omegaconf import DictConfig
 
-import open3d as o3d
-import numpy as np
-
-from rgbd_dataset.utils import invert_se3
 from rgbd_dataset.ViserServer import ViserServer
 
 
@@ -23,22 +23,20 @@ def main(cfg: DictConfig):
         viser_server.camera_poses.append(obs["camera_pose"])
         viser_server.camera_imgs.append(obs["rgb"])
 
-    # Append intrinsics
     viser_server.intrinsics = obs["intrinsics"]
 
-    # Get bounding boxes
-    bboxes = dataset.get_receptacles_bbox()
-    for bbox in bboxes.values():
+    for bbox in dataset.get_receptacles_bbox().values():
         corners = np.array(bbox["cornerPoints"], dtype=np.float64)
-        bbox = o3d.geometry.OrientedBoundingBox.create_from_points(
+        viser_server.oobb.append(
+            o3d.geometry.OrientedBoundingBox.create_from_points(
                 o3d.utility.Vector3dVector(corners)
             )
-        viser_server.oobb.append(bbox)
+        )
 
     viser_server.collate(pcd_scene)
     viser_server.display_object_rgb()
     while True:
-        pass
+        time.sleep(1.0)
 
 
 if __name__ == "__main__":

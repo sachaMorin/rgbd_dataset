@@ -1,16 +1,16 @@
-from typing import Union, List, Callable
+import logging
 from pathlib import Path
+from typing import Callable, List, Union
 
-import json
 import cv2
 import numpy as np
 from torch.utils.data import Dataset
-import logging
 
-from .utils import invert_se3
 from .rgbd_to_pcd import rgbd_to_pcd
+from .utils import invert_se3
 
 log = logging.getLogger(__name__)
+
 
 class BaseRGBDDataset(Dataset):
     def __init__(
@@ -53,7 +53,6 @@ class BaseRGBDDataset(Dataset):
         self.depth_trunc = depth_trunc
 
         log.info(f"Initializing dataset at path: {self.base_path / self.scene}")
-
 
         # Optional parameters for global intrinsics
         # Override get_intrinsics_matrices for per frame intrinsics
@@ -192,42 +191,3 @@ class BaseRGBDDataset(Dataset):
             result["depth"] = self.depth_transform(result["depth"])
 
         return result
-
-    def to_nerfstudio_config(self, dir: str):
-        config = dict(
-            camera_model="OPENCV",
-            w=self.width,  # Not self.resized_width. Nerfstudio reads the files directly
-            h=self.height,
-            frames=[],
-        )
-
-        for idx in range(len(self)):
-            rgb_path = self.rgb_paths[idx]
-            intrinsics = self.intrinsics[idx]  # No rescale
-            pose = self.se3_poses[idx]
-
-            if self.relative_pose:
-                pose = np.dot(self.first_pose_inv, pose)
-
-            # Switch to OpenGL convention
-            pose[:, 1] *= -1
-            pose[:, 2] *= -1
-
-            fx, fy, cx, cy = (
-                intrinsics[0, 0],
-                intrinsics[1, 1],
-                intrinsics[0, 2],
-                intrinsics[1, 2],
-            )
-            data = dict(
-                fl_x=fx,
-                fl_y=fy,
-                cx=cx,
-                cy=cy,
-                file_path=rgb_path,
-                transform_matrix=pose.tolist(),
-            )
-            config["frames"].append(data)
-
-        with open(dir + "/transforms.json", "w") as f:
-            json.dump(config, f)

@@ -1,26 +1,22 @@
 import glob
-import numpy as np
-from typing import List
-from natsort import natsorted
 import json
-from copy import deepcopy
-from scipy.spatial.transform import Rotation as R
-import cv2
-
+import logging
 import os
+from copy import deepcopy
+from typing import List
 
-# Disable GPU memory pre-allocation to avoid OOM
+import cv2
+import numpy as np
+from natsort import natsorted
+from scipy.spatial.transform import Rotation as R
+
+# semistaticsim imports JAX. Without this, JAX pre-allocates most of the GPU
+# memory and starves the torch models that run alongside this dataset.
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
-# Import JAX and other libraries after setting the environment variable
-import jax
-import jax.numpy as jnp
+from semistaticsim.datawrangling.sssd import GeneratedSemiStaticData, load_sssd
 
 from ..BaseRGBDDataset import BaseRGBDDataset
 from ..rgbd_to_pcd import rgbd_to_pcd
-
-from semistaticsim.datawrangling.sssd import load_sssd, GeneratedSemiStaticData
-
-import logging
 
 log = logging.getLogger(__name__)
 
@@ -56,8 +52,7 @@ class SemiStaticSim(BaseRGBDDataset):
         if self.keyframes:
             self.keyframe_indices = self.get_keyframes()
             all_semantics = self.get_semantics_paths()
-            full_timestamps = self.get_timestamps() 
-            # list comprehension to pick exactly the indices we want
+            full_timestamps = self.get_timestamps()
             self.rgb_paths = [self.rgb_paths[i] for i in self.keyframe_indices]
             self.depth_paths = [self.depth_paths[i] for i in self.keyframe_indices]
             self.se3_poses = [self.se3_poses[i] for i in self.keyframe_indices]
@@ -72,8 +67,8 @@ class SemiStaticSim(BaseRGBDDataset):
             self.timestamps = self.get_timestamps()
         self.assignment = self.get_assignment()
 
-    def get_keyframes(self) -> bool:
-        path_str = str(self.base_path / self.scene /  "keyframes.txt")
+    def get_keyframes(self) -> List[int]:
+        path_str = str(self.base_path / self.scene / "keyframes.txt")
         with open(path_str, "r") as f:
             keyframe_lines = f.readlines()
         keyframe_indices = [int(line.strip()) for line in keyframe_lines]
@@ -86,7 +81,7 @@ class SemiStaticSim(BaseRGBDDataset):
         return self.sssd_data.receptacles_in_scene
 
     def get_assignment(self) -> dict:
-        # Load GT data only here
+        # Ground truth lives next to the privileged runs; the run index is its timestep.
         sssd_data: GeneratedSemiStaticData = load_sssd(self.base_path.parent / "groundtruth")
         timestamp = int(self.scene.split("run_")[-1])
         # Get assignment at specific timestamp
@@ -105,37 +100,6 @@ class SemiStaticSim(BaseRGBDDataset):
                 pickupable_assignment[p_name] = False
 
         return pickupable_assignment
-
-    # def get_assignment(self) -> dict:
-    #     assignment = np.concatenate(
-    #         [data._assignment for data in self.sssd_data.get_generator_of_selves()]
-    #     )
-    #     n_pickupables = assignment.shape[1]
-    #     n_receptacles = assignment.shape[2]
-    #     receptacle_names = self.get_receptacles_names()
-    #     pickupable_names = self.get_pickupable_names()
-    #     pickupable_assignment = dict()
-    #     for p_id in range(n_pickupables):
-    #         p_assignments = assignment[:, p_id, :]
-    #         for r_id in range(n_receptacles):
-    #             # Get positions where the pickupable is either present or absent in the receptacle
-    #             mask = jnp.logical_or(
-    #                 p_assignments[:, r_id] == 0, p_assignments[:, r_id] == 1
-    #             )
-    #             # Do not populate data if there are no valid timestamps
-    #             if (
-    #                 jnp.sum(mask) == 0
-    #                 or receptacle_names[r_id] == "OOB_FAKE_RECEPTACLE"
-    #             ):
-    #                 continue
-    #             r_assignment = p_assignments[:, r_id][mask]
-    #             state = bool(jnp.median(r_assignment).item())
-    #             pickupable_assignment[pickupable_names[p_id]] = state
-    #             # If the pickupable is found, just return that it is present
-    #             if state:
-    #                 break
-
-    #     return pickupable_assignment
 
     def get_pickupables_bbox(self) -> dict:
         oobb = self.sssd_data._oobb_cornerPoints[0]

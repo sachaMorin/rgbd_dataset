@@ -1,5 +1,0 @@
-defaults:
-  - dataset: Replica
-  - _self_
-
-dir: "."

@@ -1,10 +1,9 @@
-import open3d as o3d
 from typing import List
 
-from scipy.spatial.transform import Rotation as Rsc
-from rgbd_dataset.utils import invert_se3
 import numpy as np
+import open3d as o3d
 import viser
+from scipy.spatial.transform import Rotation as Rsc
 
 
 class ViserServer:
@@ -12,12 +11,12 @@ class ViserServer:
         self.server = viser.ViserServer()
         # Containers
         self.point_cloud: o3d.geometry.PointCloud
-        self.point_cloud_names: List[str] = [] 
-        self.point_cloud_handle: List[viser.PointCloudHandle] = []
+        self.point_cloud_names: List[str] = []
+        self.point_cloud_handles: List[viser.PointCloudHandle] = []
         self.camera_poses: List[np.ndarray] = []
         self.camera_imgs: List[np.ndarray] = []
         self.frames: List[viser.FrameHandle] = []
-        self.origin = viser.FrameHandle = None
+        self.origin: viser.FrameHandle = None
         self.oobb: List[o3d.geometry.OrientedBoundingBox] = []
         self.box_handles: List[viser.BoxHandle] = []
         self.intrinsics: np.ndarray = None
@@ -48,9 +47,8 @@ class ViserServer:
                 initial_value=False,
             )
             self.frames_gui_counter = self.server.gui.add_number(
-                "Number of Frames",
-                initial_value=50,
-                min=1)
+                "Number of Frames", initial_value=50, min=1
+            )
             self.frames_gui_checkbox.on_update(self.on_show_frames_change)
             self.frames_gui_counter.on_update(self.on_show_frames_change)
 
@@ -82,7 +80,7 @@ class ViserServer:
         show_origin = self.pcd_origin_gui_checkbox.value
         if show_origin:
             self.display_origin()
-        else:
+        elif self.origin is not None:
             self.origin.remove()
             self.origin = None
 
@@ -116,13 +114,11 @@ class ViserServer:
     def display_point_cloud(self):
         self.clear_scene()
 
-        name = f"pcd_0"
-        pcd_points = np.asarray(self.point_cloud.points)
-        pcd_colors = np.asarray(self.point_cloud.colors)
-        handle = self.server.add_point_cloud(
+        name = "pcd_0"
+        handle = self.server.scene.add_point_cloud(
             name,
-            pcd_points,
-            pcd_colors,
+            points=np.asarray(self.point_cloud.points),
+            colors=np.asarray(self.point_cloud.colors),
             point_size=self.pcd_size_gui_slider.value,
             point_shape=self.point_shape,
         )
@@ -130,15 +126,12 @@ class ViserServer:
         self.point_cloud_handles.append(handle)
 
     def display_camera_poses(self):
-        # Remove existing image frames.
         self.clear_frames()
 
         n_frames = len(self.camera_poses)
         n_frames_to_display = min(n_frames, int(self.frames_gui_counter.value))
-        # Select the frames we will display
         indices = np.random.choice(n_frames, n_frames_to_display, replace=False)
 
-        # Get focal length
         fy = self.intrinsics[1, 1]
         for i in indices:
             cam_pose = self.camera_poses[i]
@@ -154,7 +147,7 @@ class ViserServer:
                 axes_radius=0.005,
             )
             H, W = img.shape[:2]
-            downsampled_img = img[::self.downsample_factor, ::self.downsample_factor]
+            downsampled_img = img[:: self.downsample_factor, :: self.downsample_factor]
             frustum = self.server.scene.add_camera_frustum(
                 f"/frame_{i}/frustum",
                 fov=2 * np.arctan2(H / 2, fy),
@@ -172,68 +165,29 @@ class ViserServer:
                     client.camera.position = frame.position
 
     def display_origin(self):
-        origin = self.server.scene.add_frame(
+        self.origin = self.server.scene.add_frame(
             "/origin",
             wxyz=(1.0, 0.0, 0.0, 0.0),
             position=(0.0, 0.0, 0.0),
         )
-        self.origin = origin
 
     def display_boxes(self):
-        # Clear existing boxes
         self.clear_boxes()
 
         for i, box in enumerate(self.oobb):
-            box_name = f"box_{i}"
-            center = box.center
-            extent = box.extent
-            R = np.array(box.R, copy=True)
-            wxyz = Rsc.from_matrix(R).as_quat(scalar_first=True)
-
-            box = self.server.scene.add_box(
-                name=box_name,
-                color=(0, 1, 0),
-                dimensions=extent,
-                position=center,
+            wxyz = Rsc.from_matrix(np.array(box.R, copy=True)).as_quat(
+                scalar_first=True
+            )
+            handle = self.server.scene.add_box(
+                name=f"box_{i}",
+                color=(0, 255, 0),
+                dimensions=box.extent,
+                position=box.center,
                 wxyz=wxyz,
                 visible=True,
                 wireframe=True,
             )
-            self.box_handles.append(box)
+            self.box_handles.append(handle)
 
     def display_object_rgb(self):
         self.display_point_cloud()
-
-    def add_oriented_bbox(self, object_index: int, label: str):
-        # bbox around object + label
-        bbox = self.object_map[object_index].pcd.get_oriented_bounding_box()
-        center = bbox.center
-        extent = bbox.extent
-        R = np.array(bbox.R, copy=True)
-
-        quat = Rsc.from_matrix(R).as_quat()  # x, y, z, w
-        wxyz = (quat[3], quat[0], quat[1], quat[2])  # w, x, y, z
-
-        name = f"bbox_{object_index}"
-        self.server.scene.add_box(
-            name=name,
-            color=(0, 0, 0),
-            dimensions=extent,
-            position=center,
-            wxyz=wxyz,
-            visible=True,
-            wireframe=True,
-        )
-        self.reasoning_annotation_names.append(name)
-
-        if label != "":
-            label_name = f"bbox_label_{object_index}"
-            label_pos = center.copy()
-
-            self.server.scene.add_label(
-                name=label_name,
-                text=label,
-                position=label_pos,
-                visible=True,
-            )
-            self.reasoning_annotation_names.append(label_name)
