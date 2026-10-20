@@ -84,7 +84,7 @@ dataset.get_assignment()                 # {pickupable: present in the scene?}
 ```
 
 The same dataset can be built from the Hydra config in
-`conf/dataset/SemiStaticSim.yaml` with `hydra.utils.instantiate`.
+`src/rgbd_dataset/conf/dataset/SemiStaticSim.yaml` with `hydra.utils.instantiate`.
 
 ### Parameters
 
@@ -105,14 +105,17 @@ All of these can be overridden from the command line, for example `dataset.seque
 
 ## Visualising a run
 
-`pcd_scene.py` fuses every frame into one point cloud and serves it, with the
-camera frustums and the receptacle bounding boxes, in a [viser](https://viser.studio) viewer:
+`rgbd-viz` (installed with the package) fuses every frame into one point cloud
+and serves it, with the camera frustums and the receptacle bounding boxes, in a
+[viser](https://viser.studio) viewer:
 
 ```bash
-python pcd_scene.py dataset.base_path=/path/to/<layout>/0/privileged dataset.scene=run_0 dataset.sequence_stride=20
+rgbd-viz dataset.base_path=/path/to/<layout>/0/privileged dataset.scene=run_0 dataset.sequence_stride=20
 ```
 
-Open http://localhost:8080 and use the side panel to toggle frames, boxes and the origin.
+Open http://localhost:8080 and use the side panel to toggle frames, boxes and the
+origin; stop it with Ctrl+C. `python -m rgbd_dataset.pcd_scene` is equivalent.
+Add `--cfg job` to print the resolved config without loading any data.
 
 ## Tests
 

@@ -5,7 +5,7 @@ import numpy as np
 import open3d as o3d
 from omegaconf import DictConfig
 
-from rgbd_dataset.ViserServer import ViserServer
+from .ViserServer import ViserServer
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="pcd_scene")

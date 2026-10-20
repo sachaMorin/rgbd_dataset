@@ -5,9 +5,10 @@ import pytest
 from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
 
+import rgbd_dataset
 from rgbd_dataset.datasets.SemiStaticSim import SemiStaticSim
 
-CONF_DIR = Path(__file__).resolve().parents[1] / "conf"
+CONF_DIR = Path(rgbd_dataset.__file__).parent / "conf"
 
 
 @pytest.fixture(scope="module")
