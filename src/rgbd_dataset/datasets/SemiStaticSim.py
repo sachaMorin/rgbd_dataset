@@ -43,8 +43,9 @@ class SemiStaticSim(BaseRGBDDataset):
         self.depth_dir = depth_dir
         self.semantics_dir = semantics_dir
         self.keyframes = keyframes
-        # If using keyframes, set stride to 1
-        kwargs["sequence_stride"] = 1 if keyframes else kwargs["sequence_stride"]
+        # Keyframe indices refer to the full sequence, so load it unstrided
+        if keyframes:
+            kwargs["sequence_stride"] = 1
 
         super().__init__(**kwargs)
 

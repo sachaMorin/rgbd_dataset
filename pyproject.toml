@@ -1,22 +1,33 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "rgbd-dataset"
-version = "0.0.0"
+version = "0.1.0"
+description = "Posed RGB-D dataset loader for SemiStaticSim sequences, used by Predictive Graphs."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.12"
 dependencies = [
     "torch",
-    "torchvision",
     "jax==0.8.1 ; sys_platform == 'darwin'",
     "jax[cuda12]==0.8.1 ; sys_platform == 'linux'",
-    "flax==0.12.0",
-    "polars>=1.34.0",
-    "open3d",
-    "natsort",
-    "opencv-python",
-    "hydra-core>=1.3.2",
     "numpy==2.1.2",
+    "scipy",
+    "open3d",
+    "opencv-python",
+    "natsort",
+    "hydra-core>=1.3.2",
     "viser>=1.0.16",
     "semistaticsim>=0.5.1",
 ]
-requires-python = ">=3.8"
 
-[tool.setuptools]
-py-modules = []
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
