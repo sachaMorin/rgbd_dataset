@@ -68,9 +68,9 @@ def test_resize_rescales_intrinsics(dataset_kwargs, dataset):
     np.testing.assert_allclose(obs["intrinsics"][:2], dataset[0]["intrinsics"][:2] / 2)
 
 
-def test_keyframes_select_listed_frames(dataset_kwargs, privileged_dir):
-    if not (privileged_dir / "run_0" / "keyframes.txt").is_file():
-        pytest.skip("run_0 has no keyframes.txt")
+def test_keyframes_select_listed_frames(dataset_kwargs, privileged_dir, scene):
+    if not (privileged_dir / scene / "keyframes.txt").is_file():
+        pytest.skip(f"{scene} has no keyframes.txt")
     full = SemiStaticSim(**dataset_kwargs, point_cloud=False)
     kf = SemiStaticSim(**dataset_kwargs, keyframes=True, point_cloud=False)
     idx = kf.keyframe_indices
@@ -79,11 +79,11 @@ def test_keyframes_select_listed_frames(dataset_kwargs, privileged_dir):
     np.testing.assert_array_equal(kf.timestamps, np.asarray(full.timestamps)[idx])
 
 
-def test_hydra_config_instantiates(privileged_dir):
+def test_hydra_config_instantiates(privileged_dir, scene):
     with initialize_config_dir(config_dir=str(CONF_DIR), version_base=None):
         cfg = compose(
             config_name="pcd_scene",
-            overrides=[f"dataset.base_path={privileged_dir}", "dataset.sequence_stride=100"],
+            overrides=[f"dataset.base_path={privileged_dir}", f"dataset.scene={scene}", "dataset.sequence_stride=100"],
         )
     ds = instantiate(cfg.dataset)
     assert isinstance(ds, SemiStaticSim) and len(ds) > 0

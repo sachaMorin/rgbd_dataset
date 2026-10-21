@@ -75,6 +75,8 @@ class BaseRGBDDataset(Dataset):
 
         # Get and slice paths and poses
         self.rgb_paths = self.get_rgb_paths()
+        if not self.rgb_paths:
+            raise FileNotFoundError(f"No RGB frames found in {self.base_path / self.scene}")
         self.num_total_images = len(self.rgb_paths)
         if self.sequence_end == -1:
             self.sequence_end = self.num_total_images
